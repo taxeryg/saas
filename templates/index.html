@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kick Chat Bot Kontrol Paneli</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script>
+        // Sayfa yenilendiğinde (F5) otomatik çıkış yaptırıp login sayfasına yönlendir
+        if (performance.navigation.type === 1) {
+            window.location.href = "{{ url_for('logout') }}";
+        }
+    </script>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header-bar">
+            <div style="display:flex; align-items:center; gap:14px;">
+                <a href="/arcade" title="Arcade Portalına Dön" style="
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    background: rgba(187,134,252,0.1);
+                    border: 1px solid rgba(187,134,252,0.35);
+                    color: #bb86fc;
+                    padding: 6px 14px;
+                    border-radius: 20px;
+                    font-size: 13px;
+                    font-weight: bold;
+                    text-decoration: none;
+                    transition: all 0.2s ease;
+                    margin-top: 0;
+                    width: auto;
+                " onmouseover="this.style.background='rgba(187,134,252,0.25)'" onmouseout="this.style.background='rgba(187,134,252,0.1)'">
+                    ← Arcade
+                </a>
+                <h2 style="margin:0;">🚀 Kick Chat Bot</h2>
+            </div>
+            <a href="{{ url_for('logout') }}" class="logout-btn">Çıkış Yap</a>
+        </div>
+
+        <!-- TAB NAVİGASYONU -->
+        <div class="tab-nav">
+            <button class="tab-btn active" data-tab="bot-tab" id="tab-bot">💬 Sohbet Botu</button>
+            <button class="tab-btn" data-tab="account-tab" id="tab-account">👤 Otomatik Hesap Aç</button>
+            <button class="tab-btn" data-tab="token-test-tab" id="tab-token-test">🔍 Token Test</button>
+        </div>
+
+        <!-- SOHBET BOTU SEKMESI -->
+        <div id="bot-tab" class="tab-content active">
+            <div class="bot-grid-layout">
+                <!-- SOL PANEL: BOT AYARLARI VE KONTROLLERİ -->
+                <div class="bot-left-panel">
+                    <form id="config-form">
+                        <label for="channel">Hedef Kick Kanal Adı / Kullanıcı Adı:</label>
+                        <input type="text" id="channel" name="channel" value="{{ config['channel'] }}"
+                            placeholder="Örn: sefoge" required>
+
+                        <label for="tokens">Bearer Tokenlar (Her satıra bir token):</label>
+                        <textarea id="tokens" name="tokens" rows="4">{{ '\n'.join(config['tokens']) }}</textarea>
+
+                        <label for="messages">Mesajlar (Her satıra bir mesaj):</label>
+                        <textarea id="messages" name="messages" rows="5">{{ '\n'.join(config['messages']) }}</textarea>
+
+                        <label for="delay">Gecikme Süresi (Saniye):</label>
+                        <input type="number" id="delay" name="delay" step="0.5" min="1" value="{{ config['delay'] }}">
+
+                        <button type="submit">Ayarları Kaydet</button>
+                    </form>
+
+                    <div class="button-group">
+                        <button id="start-btn" class="start">Botu Başlat</button>
+                        <button id="stop-btn" class="stop">Botu Durdur</button>
+                    </div>
+
+                    <div class="status" id="status-text">Durum: Kontrol ediliyor...</div>
+
+                    <h3>Canlı Bot Logları</h3>
+                    <div class="logs" id="logs-box"></div>
+                </div>
+
+                <!-- SAĞ PANEL: BAĞLI YAYINCININ CANLI CHATİ VE TIKLANABİLİR MESAJ/EMOTE AKIŞI -->
+                <div class="bot-right-panel">
+                    <div class="live-chat-card">
+                        <div class="live-chat-header">
+                            <h3>⚡ Yayıncı Canlı Chat Stream (<span id="chat-channel-display" class="highlight-channel">{{ config['channel'] }}</span>)</h3>
+                            <div class="chat-header-actions">
+                                <button type="button" id="clear-live-chat-btn" class="small-btn">🗑 Temizle</button>
+                                <button type="button" id="refresh-chat-btn" class="small-btn">🔄 Bağlan</button>
+                            </div>
+                        </div>
+
+                        <div class="chat-status-bar" id="chat-status-bar">
+                            ⏳ Canlı WebSocket Bağlantısı Hazırlanıyor...
+                        </div>
+
+                        <!-- TIKLANABİLİR CANLI CHAT AKIŞ ALANI -->
+                        <div class="live-chat-stream-box" id="live-chat-box">
+                            <div class="chat-welcome-tip">
+                                💡 <strong>Tıklamalı Sistem Aktif!</strong> Chat'e düşen herhangi bir mesaja tıkladığında <u>mesajın kendisi</u>, emote simgesine tıkladığında ise <u>Kick Emote ID'si (`[emote:ID:Name]`)</u> otomatik sol taraftaki mesaja eklenir.
+                            </div>
+                        </div>
+
+                        <!-- HIZLI MANUEL / EMOTE EKLEME ALANI -->
+                        <div class="emote-picker-section">
+                            <h4>➕ Hızlı Manuel Mesaj veya Emote ID Ekle</h4>
+                            <div class="input-with-button">
+                                <input type="text" id="custom-emote-input" placeholder="Örn: [emote:51789:Ez] veya Harika yayın!">
+                                <button type="button" id="add-emote-btn" class="start-sm">➕ Ekle</button>
+                            </div>
+
+                            <div class="quick-emotes-title">📌 Hazır Emote İfadeleri (Tıkla & Ekle):</div>
+                            <div class="quick-emote-badges">
+                                <button type="button" class="emote-tag-btn" onclick="addEmoteToMessages('[emote:51789:Ez]')">Ez Emote</button>
+                                <button type="button" class="emote-tag-btn" onclick="addEmoteToMessages('[emote:31845:LUL]')">LUL Emote</button>
+                                <button type="button" class="emote-tag-btn" onclick="addEmoteToMessages('[emote:98234:Kick]')">Kick Emote</button>
+                                <button type="button" class="emote-tag-btn" onclick="addEmoteToMessages('[emote:12345:Pog]')">Pog Emote</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- OTOMATİK HESAP AÇ SEKMESİ -->
+        <div id="account-tab" class="tab-content">
+            <div class="section-card">
+                <h3>🔑 Otomatik Kick Hesap Oluşturma</h3>
+                <p class="section-desc">
+                    mail.tm ücretsiz API ile geçici e-posta oluşturulur, ardından Kick.com'da otomatik hesap açılır.
+                    Doğrulama kodu otomatik alınır.
+                </p>
+
+                <div class="account-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="account_count">Hesap Sayısı:</label>
+                            <input type="number" id="account_count" min="1" max="20" value="1">
+                        </div>
+                        <div class="form-group">
+                            <label for="account_delay">Hesaplar Arası Bekleme (sn):</label>
+                            <input type="number" id="account_delay" min="5" max="120" value="10">
+                        </div>
+                    </div>
+
+                    <div class="button-group">
+                        <button id="create-account-btn" class="start">🚀 Hesap Oluştur</button>
+                        <button id="stop-account-btn" class="stop">⏹ Durdur</button>
+                    </div>
+                </div>
+
+                <div class="status" id="account-status">Durum: Bekleniyor...</div>
+            </div>
+
+            <!-- Oluşturulan Hesaplar Tablosu -->
+            <div class="section-card" id="accounts-section" style="display:none;">
+                <h3>📋 Oluşturulan Hesaplar</h3>
+                <div class="table-wrapper">
+                    <table id="accounts-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>E-posta</th>
+                                <th>Kullanıcı Adı</th>
+                                <th>Şifre</th>
+                                <th>Token</th>
+                                <th>Doğrulama</th>
+                            </tr>
+                        </thead>
+                        <tbody id="accounts-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <h3>Hesap Oluşturma Logları
+                <button id="clear-account-logs-btn" class="small-btn">🗑 Temizle</button>
+            </h3>
+            <div class="logs" id="account-logs-box"></div>
+        </div>
+
+        <!-- TOKEN TEST SEKMESİ -->
+        <div id="token-test-tab" class="tab-content">
+            <div class="section-card">
+                <h3>🔍 Toplu Token Test Aracı</h3>
+                <p class="section-desc">
+                    Elindeki Bearer token'ların Kick'te çalışıp çalışmadığını ve hangi hesaba ait olduğunu test et.
+                </p>
+
+                <label for="test-tokens-input">Test Edilecek Tokenlar (Her satıra bir token):</label>
+                <textarea id="test-tokens-input" rows="6" placeholder="Tokenları buraya yapıştır..."></textarea>
+
+                <button id="run-token-test-btn" class="start">🔍 Testi Başlat</button>
+            </div>
+
+            <div class="section-card" id="token-test-results-section" style="display:none;">
+                <h3>📊 Test Sonuçları (<span id="tested-count">0</span>/<span id="total-test-count">0</span>)</h3>
+                <div class="table-wrapper">
+                    <table id="test-results-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Token (İlk 15 Krk)</th>
+                                <th>Durum</th>
+                                <th>Kullanıcı Adı</th>
+                            </tr>
+                        </thead>
+                        <tbody id="test-results-tbody"></tbody>
+                    </table>
+                </div>
+                <div class="button-group" style="margin-top: 15px;">
+                    <button id="add-valid-tokens-btn" class="start" style="display:none;">✅ Çalışanları Bot Ayarlarına
+                        Ekle</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // CANLI KICK SOHBETİ VE TIKLAMALI EKLEME MANTIĞI
+        // ==========================================
+        let pusherWs = null;
+        let currentChatroomId = null;
+
+        function addEmoteToMessages(textToAdd) {
+            const textarea = document.getElementById('messages');
+            if (!textarea || !textToAdd) return;
+            let currentVal = textarea.value.trim();
+            if (currentVal.length > 0) {
+                textarea.value = currentVal + '\n' + textToAdd;
+            } else {
+                textarea.value = textToAdd;
+            }
+            textarea.focus();
+
+            showToast(`✅ Eklendi: "${textToAdd}"`);
+        }
+
+        function showToast(msg) {
+            let toast = document.getElementById('toast-notification');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'toast-notification';
+                toast.className = 'toast-notification';
+                document.body.appendChild(toast);
+            }
+            toast.innerText = msg;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        async function connectToLiveChat() {
+            const channelInput = document.getElementById('channel');
+            const channelName = channelInput ? channelInput.value.trim().toLowerCase() : '';
+            const statusBar = document.getElementById('chat-status-bar');
+            const displayEl = document.getElementById('chat-channel-display');
+
+            if (!channelName) return;
+            if (displayEl) displayEl.innerText = channelName;
+
+            if (statusBar) {
+                statusBar.className = 'chat-status-bar connecting';
+                statusBar.innerText = `⏳ '${channelName}' sohbet odası bilgileri alınıyor...`;
+            }
+
+            try {
+                const res = await fetch(`/get-chatroom/${channelName}`);
+                const data = await res.json();
+
+                if (!data.success || !data.chatroom_id) {
+                    if (statusBar) {
+                        statusBar.className = 'chat-status-bar error';
+                        statusBar.innerText = `❌ '${channelName}' kanalı için chatroom ID bulunamadı!`;
+                    }
+                    return;
+                }
+
+                currentChatroomId = data.chatroom_id;
+                startPusherWebSocket(currentChatroomId, channelName);
+            } catch (err) {
+                if (statusBar) {
+                    statusBar.className = 'chat-status-bar error';
+                    statusBar.innerText = `❌ Bağlantı hatası: ${err.message}`;
+                }
+            }
+        }
+
+        function startPusherWebSocket(chatroomId, channelName) {
+            if (pusherWs) {
+                try { pusherWs.close(); } catch(e){}
+            }
+
+            const pusherKey = "32cbd69e4b950bf97679";
+            const wsUrl = `wss://ws-us2.pusher.com/app/${pusherKey}?protocol=7&client=js&version=7.4.0&flash=false`;
+            const statusBar = document.getElementById('chat-status-bar');
+
+            pusherWs = new WebSocket(wsUrl);
+
+            pusherWs.onopen = function() {
+                if (statusBar) {
+                    statusBar.className = 'chat-status-bar connected';
+                    statusBar.innerText = `🟢 Canlı Chat Bağlandı: '${channelName}' (Mesaj veya emote'a tıklayarak ekleyebilirsin)`;
+                }
+                const subPayload = {
+                    "event": "pusher:subscribe",
+                    "data": {
+                        "auth": "",
+                        "channel": `chatrooms.${chatroomId}.v2`
+                    }
+                };
+                pusherWs.send(JSON.stringify(subPayload));
+            };
+
+            pusherWs.onmessage = function(event) {
+                try {
+                    const rawData = JSON.parse(event.data);
+                    if (rawData.event === 'App\\Events\\ChatMessageEvent') {
+                        const msgObj = JSON.parse(rawData.data);
+                        appendLiveMessageToFeed(msgObj);
+                    }
+                } catch(e) {}
+            };
+
+            pusherWs.onerror = function() {
+                if (statusBar) {
+                    statusBar.className = 'chat-status-bar error';
+                    statusBar.innerText = `⚠️ WebSocket hatası!`;
+                }
+            };
+        }
+
+        function parseAndFormatContent(text) {
+            if (!text) return '';
+            // Kick emote formatını [emote:ID:NAME] tespit et
+            const regex = /\[emote:(\d+):([a-zA-Z0-9_\-]+)\]/g;
+            let replaced = text.replace(regex, function(match, emoteId, emoteName) {
+                return `<span class="chat-emote-tag" title="Emote ID'sini Ekle: ${match}" onclick="event.stopPropagation(); addEmoteToMessages('${match}');">🏷️ [${emoteName}]</span>`;
+            });
+            return replaced;
+        }
+
+        function appendLiveMessageToFeed(msgObj) {
+            const chatBox = document.getElementById('live-chat-box');
+            if (!chatBox) return;
+
+            const sender = msgObj.sender ? msgObj.sender.username : 'Kullanıcı';
+            const color = (msgObj.sender && msgObj.sender.identity && msgObj.sender.identity.color) || '#03dac6';
+            const rawContent = msgObj.content || '';
+
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'live-chat-row';
+            msgDiv.title = 'Tüm Mesajı Eklemek İçin Tıkla';
+
+            msgDiv.onclick = function(e) {
+                if (!e.target.classList.contains('chat-emote-tag')) {
+                    addEmoteToMessages(rawContent);
+                }
+            };
+
+            const renderedContent = parseAndFormatContent(rawContent);
+
+            msgDiv.innerHTML = `
+                <span class="chat-sender" style="color:${color};">${sender}:</span>
+                <span class="chat-content-text">${renderedContent}</span>
+                <button type="button" class="quick-pick-btn" title="Mesajı Ekle">➕</button>
+            `;
+
+            chatBox.appendChild(msgDiv);
+
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            while (chatBox.children.length > 80) {
+                // İlk duyuru kutusunu silme
+                if (chatBox.children[0].classList.contains('chat-welcome-tip')) {
+                    chatBox.removeChild(chatBox.children[1]);
+                } else {
+                    chatBox.removeChild(chatBox.children[0]);
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            connectToLiveChat();
+
+            const refreshBtn = document.getElementById('refresh-chat-btn');
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', connectToLiveChat);
+            }
+
+            const clearBtn = document.getElementById('clear-live-chat-btn');
+            if (clearBtn) {
+                clearBtn.addEventListener('click', function() {
+                    const chatBox = document.getElementById('live-chat-box');
+                    if (chatBox) {
+                        chatBox.innerHTML = `
+                            <div class="chat-welcome-tip">
+                                💡 Chat temizlendi. Canlı mesajlar bekleniyor...
+                            </div>
+                        `;
+                    }
+                });
+            }
+
+            const channelInput = document.getElementById('channel');
+            if (channelInput) {
+                channelInput.addEventListener('change', connectToLiveChat);
+            }
+
+            const addEmoteBtn = document.getElementById('add-emote-btn');
+            if (addEmoteBtn) {
+                addEmoteBtn.addEventListener('click', function() {
+                    const input = document.getElementById('custom-emote-input');
+                    const val = input ? input.value.trim() : '';
+                    if (val) {
+                        addEmoteToMessages(val);
+                        input.value = '';
+                    } else {
+                        alert('Lütfen eklenecek bir mesaj veya emote ID\'si girin!');
+                    }
+                });
+            }
+        });
+
+        // ==================
+        // TAB SİSTEMİ
+        // ==================
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+                document.getElementById(this.dataset.tab).classList.add('active');
+            });
+        });
+
+        // ==================
+        // SOHBET BOTU
+        // ==================
+        document.getElementById('config-form').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            try {
+                const res = await fetch('/update', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert('Ayarlar başarıyla güncellendi!');
+                } else if (data.message) {
+                    alert('Hata: ' + data.message);
+                }
+            } catch (err) {
+                alert('Ayarlar kaydedilirken bir hata oluştu.');
+            }
+        });
+
+        document.getElementById('start-btn').addEventListener('click', async function () {
+            try {
+                const res = await fetch('/start', { method: 'POST' });
+                const data = await res.json();
+                alert(data.message);
+                updateLogs();
+            } catch (err) {
+                alert('Bot başlatılamadı!');
+            }
+        });
+
+        document.getElementById('stop-btn').addEventListener('click', async function () {
+            try {
+                const res = await fetch('/stop', { method: 'POST' });
+                const data = await res.json();
+                alert(data.message);
+                updateLogs();
+            } catch (err) {
+                alert('Bot durdurulamadı!');
+            }
+        });
+
+        async function updateLogs() {
+            try {
+                const res = await fetch('/logs');
+                if (res.status === 401) {
+                    window.location.href = '/login';
+                    return;
+                }
+                const data = await res.json();
+
+                const statusText = document.getElementById('status-text');
+                if (data.running) {
+                    statusText.innerText = 'Durum: Bot Çalışıyor (' + (data.channel || '') + ') 🚀';
+                    statusText.style.color = '#03dac6';
+                } else {
+                    statusText.innerText = 'Durum: Bot Durduruldu 🛑';
+                    statusText.style.color = '#cf6679';
+                }
+
+                const logsBox = document.getElementById('logs-box');
+                logsBox.innerText = data.logs.join('\n');
+            } catch (err) {
+                console.error('Log güncelleme hatası:', err);
+            }
+        }
+
+        setInterval(updateLogs, 2000);
+        updateLogs();
+
+        // ==================
+        // HESAP OLUŞTURMA
+        // ==================
+        document.getElementById('create-account-btn').addEventListener('click', async function () {
+            const count = document.getElementById('account_count').value;
+            const delay = document.getElementById('account_delay').value;
+            const formData = new FormData();
+            formData.append('account_count', count);
+            formData.append('account_delay', delay);
+
+            try {
+                const res = await fetch('/create-account', { method: 'POST', body: formData });
+                const data = await res.json();
+                alert(data.message);
+            } catch (err) {
+                alert('Hesap oluşturma başlatılamadı!');
+            }
+        });
+
+        document.getElementById('stop-account-btn').addEventListener('click', async function () {
+            try {
+                const res = await fetch('/stop-account', { method: 'POST' });
+                const data = await res.json();
+                alert(data.message);
+            } catch (err) {
+                alert('Durdurma hatası!');
+            }
+        });
+
+        document.getElementById('clear-account-logs-btn').addEventListener('click', async function (e) {
+            e.preventDefault();
+            try {
+                await fetch('/clear-account-logs', { method: 'POST' });
+            } catch (err) { }
+        });
+
+        async function updateAccountLogs() {
+            try {
+                const res = await fetch('/account-logs');
+                if (res.status === 401) return;
+                const data = await res.json();
+
+                const statusEl = document.getElementById('account-status');
+                if (data.creating) {
+                    statusEl.innerText = 'Durum: Hesap oluşturuluyor... ⏳';
+                    statusEl.style.color = '#ffd740';
+                } else {
+                    statusEl.innerText = 'Durum: Bekleniyor ⏸';
+                    statusEl.style.color = '#aaa';
+                }
+
+                document.getElementById('account-logs-box').innerText = data.logs.join('\n');
+
+                const accounts = data.accounts || [];
+                const section = document.getElementById('accounts-section');
+                const tbody = document.getElementById('accounts-tbody');
+
+                if (accounts.length > 0) {
+                    section.style.display = 'block';
+                    tbody.innerHTML = '';
+                    accounts.forEach((acc, i) => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${i + 1}</td>
+                            <td class="mono">${acc.email}</td>
+                            <td class="mono">${acc.username}</td>
+                            <td class="mono">${acc.password}</td>
+                            <td class="mono">${acc.token}</td>
+                            <td>${acc.verified ? '✅' : '❌'}</td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                } else {
+                    section.style.display = 'none';
+                }
+
+            } catch (err) {
+                console.error('Hesap log güncelleme hatası:', err);
+            }
+        }
+
+        setInterval(updateAccountLogs, 3000);
+        updateAccountLogs();
+
+        // ==================
+        // TOKEN TEST
+        // ==================
+        let validTokensFound = [];
+
+        document.getElementById('run-token-test-btn').addEventListener('click', async function () {
+            const tokenInput = document.getElementById('test-tokens-input').value;
+            const tokens = tokenInput.split('\n').map(t => t.trim()).filter(t => t.length > 0);
+
+            if (tokens.length === 0) {
+                alert('Lütfen test edilecek tokenları girin.');
+                return;
+            }
+
+            const btn = this;
+            btn.disabled = true;
+            btn.innerText = 'Test Ediliyor...';
+
+            document.getElementById('token-test-results-section').style.display = 'block';
+            document.getElementById('total-test-count').innerText = tokens.length;
+            document.getElementById('tested-count').innerText = '0';
+            const tbody = document.getElementById('test-results-tbody');
+            tbody.innerHTML = '';
+            document.getElementById('add-valid-tokens-btn').style.display = 'none';
+            validTokensFound = [];
+
+            for (let i = 0; i < tokens.length; i++) {
+                const token = tokens[i];
+                const tr = document.createElement('tr');
+                const tokenDisplay = token.substring(0, 15) + '...';
+
+                tr.innerHTML = `
+                    <td>${i + 1}</td>
+                    <td class="mono" title="${token}">${tokenDisplay}</td>
+                    <td id="status-${i}">⏳ Test Ediliyor...</td>
+                    <td id="user-${i}">-</td>
+                `;
+                tbody.appendChild(tr);
+
+                try {
+                    const res = await fetch('/test-token', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ token: token })
+                    });
+
+                    const data = await res.json();
+
+                    const statusTd = document.getElementById(`status-${i}`);
+                    const userTd = document.getElementById(`user-${i}`);
+
+                    if (data.valid) {
+                        statusTd.innerHTML = '<span style="color:#03dac6;">✅ Aktif</span>';
+                        userTd.innerText = data.username;
+                        validTokensFound.push(token);
+                    } else {
+                        statusTd.innerHTML = `<span style="color:#cf6679;">❌ ${data.message}</span>`;
+                    }
+                } catch (e) {
+                    document.getElementById(`status-${i}`).innerHTML = '<span style="color:#cf6679;">❌ Hata</span>';
+                }
+
+                document.getElementById('tested-count').innerText = i + 1;
+            }
+
+            btn.disabled = false;
+            btn.innerText = '🔍 Testi Başlat';
+
+            if (validTokensFound.length > 0) {
+                document.getElementById('add-valid-tokens-btn').style.display = 'block';
+            }
+        });
+
+        document.getElementById('add-valid-tokens-btn').addEventListener('click', function () {
+            const currentTokensArea = document.getElementById('tokens');
+            let currentTokens = currentTokensArea.value.split('\n').map(t => t.trim()).filter(t => t.length > 0);
+
+            // Mevcut olmayan tokenları ekle
+            let addedCount = 0;
+            validTokensFound.forEach(t => {
+                if (!currentTokens.includes(t)) {
+                    currentTokens.push(t);
+                    addedCount++;
+                }
+            });
+
+            currentTokensArea.value = currentTokens.join('\n');
+
+            // Otomatik olarak formu submit et ve kaydet
+            document.getElementById('config-form').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+
+            alert(`${addedCount} adet çalışan token başarıyla eklendi ve sistem dosyasına kaydedildi!`);
+        });
+    </script>
+</body>
+
+</html>

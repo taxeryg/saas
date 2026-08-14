@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Giriş Yap - Kick Chat Bot</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        /* Video Background */
+        #bg-video {
+            position: fixed;
+            right: 0;
+            bottom: 0;
+            min-width: 100%;
+            min-height: 100%;
+            width: auto;
+            height: auto;
+            z-index: -100;
+            background-size: cover;
+            filter: brightness(0.4);
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: none;
+        }
+        .login-container {
+            position: relative;
+            z-index: 1;
+            background: transparent;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(187, 134, 252, 0.4);
+            margin: 0;
+        }
+        /* Mute Button */
+        .mute-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: rgba(30, 30, 30, 0.7);
+            border: 1px solid rgba(187, 134, 252, 0.4);
+            color: #fff;
+            padding: 10px;
+            border-radius: 50%;
+            cursor: pointer;
+            width: 45px;
+            height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            transition: all 0.3s ease;
+        }
+        .mute-btn:hover {
+            background: #bb86fc;
+            color: #121212;
+        }
+    </style>
+</head>
+<body>
+    <!-- muted kaldırıldı, sesli oynatma için -->
+    <video autoplay loop playsinline id="bg-video">
+        <source src="{{ url_for('static', filename='kartel.mp4') }}" type="video/mp4">
+    </video>
+
+    <!-- Mute/Unmute Button -->
+    <div class="mute-btn" id="mute-toggle" title="Sesi Kapat/Aç">🔊</div>
+
+    <script>
+        const video = document.getElementById('bg-video');
+        const muteToggle = document.getElementById('mute-toggle');
+
+        // İlk tıklamada tarayıcı engelini aşmak için sesi aç
+        window.addEventListener('click', (e) => {
+            // Eğer mute butonuna tıklanmadıysa ilk tıkla sesi aç
+            if (e.target !== muteToggle) {
+                if (video.muted) {
+                    video.muted = false;
+                    video.play().catch(e => console.log("Oynatma hatası:", e));
+                    muteToggle.innerText = "🔊";
+                }
+            }
+        }, { once: true });
+
+        // Mute butonuna basınca sesi aç/kapa
+        muteToggle.addEventListener('click', (e) => {
+            e.stopPropagation(); // window click tetiklenmesin diye
+            if (video.muted) {
+                video.muted = false;
+                muteToggle.innerText = "🔊";
+                video.play().catch(e => console.log("Oynatma hatası:", e));
+            } else {
+                video.muted = true;
+                muteToggle.innerText = "🔇";
+            }
+        });
+    </script>
+
+    <div class="login-container">
+        <h1>🔒 Panel Girişi</h1>
+        
+        {% if error %}
+            <div class="alert-error">{{ error }}</div>
+        {% endif %}
+
+        <form action="{{ url_for('login') }}" method="POST">
+            <label for="username">Kullanıcı Adı:</label>
+            <input type="text" id="username" name="username" required placeholder="Kullanıcı adınızı girin">
+
+            <label for="password">Şifre:</label>
+            <input type="password" id="password" name="password" required placeholder="Şifrenizi girin">
+
+            <button type="submit">Giriş Yap</button>
+        </form>
+    </div>
+</body>
+</html>
