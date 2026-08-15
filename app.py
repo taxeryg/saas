@@ -129,8 +129,9 @@ class KickFollowAutomation:
       for url in endpoints:
         try:
           print(f"[DEBUG] GET {url}")
+          # Render'de impersonate desteklenmiyor - kaldır
           resp = crequests.get(
-              url, headers=headers, impersonate="chrome120", timeout=15
+              url, headers=headers, timeout=15
           )
           print(f"[DEBUG] Status: {resp.status_code}")
           if resp.status_code == 200:
