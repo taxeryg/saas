@@ -80,10 +80,8 @@ class KickAccountCreator:
         self.log_callback(msg)
 
     def _create_session(self):
-        if HAS_CURL_CFFI:
-            self.session = crequests.Session(impersonate="chrome120")
-        else:
-            self.session = crequests.Session()
+        # Render'de impersonate desteklenmiyor
+        self.session = crequests.Session()
 
     def _refresh_xsrf(self):
         """Session cookie'lerinden XSRF token'ı güncelle."""

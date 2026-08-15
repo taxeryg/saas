@@ -188,7 +188,7 @@ class KickFollowAutomation:
     for url in endpoints:
       try:
         response = crequests.post(
-            url, headers=headers, json={}, impersonate="chrome120", timeout=8
+            url, headers=headers, json={}, timeout=8
         )
         if response.status_code in (200, 201, 204):
           return (
@@ -373,7 +373,6 @@ def bot_worker():
             url,
             headers=headers,
             json=payload,
-            impersonate="chrome120",
             timeout=10,
         )
         token_masked = selected_token[:10] + "..."
@@ -809,7 +808,7 @@ def test_token():
     }
     
     try:
-        resp = crequests.get("https://kick.com/api/v1/user", headers=headers, impersonate="chrome120", timeout=10)
+        resp = crequests.get("https://kick.com/api/v1/user", headers=headers, timeout=10)
         if resp.status_code == 200:
             data = resp.json()
             username = data.get("username", "Bilinmiyor")
