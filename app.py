@@ -25,8 +25,6 @@ from kick_register import KickAccountCreator, create_multiple_accounts
 app = Flask(__name__, template_folder='templates', static_folder='static')
 app.secret_key = "kick_bot_super_secret_key_2026"
 
-import os
-
 ADMIN_USERNAME = "taxer"
 ADMIN_PASSWORD = "babaproxx123"
 DB_FILE = "users.db"
@@ -103,142 +101,99 @@ config = load_config()
 
 
 class KickFollowAutomation:
-  """Kick API ile mesaj gönderme ve takip işlemleri - robust version"""
 
   def __init__(self, token):
     self.token = token
     self.token_masked = token[:10] + "..." if token else "NO_TOKEN"
-    self.session = None
-    self._init_session()
-
-  def _init_session(self):
-    """Session oluştur - curl_cffi veya requests"""
-    try:
-      self.session = crequests.Session()
-    except Exception as e:
-      print(f"[DEBUG] Session init error: {e}")
-      self.session = crequests.Session()
-
-  def _get_headers(self, include_auth=False, include_token=False):
-    """Generic headers - Windows/Linux uyumlu"""
-    headers = {
-        "accept": "application/json, text/plain, */*",
-        "user-agent": "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "origin": "https://kick.com",
-    }
-    if include_token and self.token:
-      headers["authorization"] = f"Bearer {self.token}"
-    if include_auth:
-      headers["content-type"] = "application/json"
-    return headers
 
   def get_channel_info(self, channel_slug):
-    """Kanal bilgileri çek - v2 ve v1 endpoint'lerini dene"""
-    print(f"[DEBUG] Fetching channel info for: {channel_slug}")
-    
-    for attempt in range(3):
-      for endpoint_version in ["v2", "v1"]:
-        try:
-          url = f"https://kick.com/api/{endpoint_version}/channels/{channel_slug}"
-          print(f"[DEBUG] Attempt {attempt + 1}/3 - {endpoint_version}: {url}")
-          
-          resp = crequests.get(url, headers=self._get_headers(), timeout=10)
-          print(f"[DEBUG] Status: {resp.status_code}")
-          print(f"[DEBUG] Response length: {len(resp.text)}")
-          
-          if resp.status_code == 200:
-            try:
-              data = resp.json()
-              print(f"[DEBUG] JSON parsed OK. Top-level keys: {list(data.keys())}")
-              print(f"[DEBUG] Full response (first 500 chars): {str(data)[:500]}")
-              
-              # Chatroom ID'sini çeşitli yerlerden ara
-              chatroom_id = (
-                  data.get("chatroom", {}).get("id") or
-                  data.get("chatroom_id") or
-                  data.get("id")
-              )
-              
-              print(f"[DEBUG] Extracted chatroom_id: {chatroom_id}")
-              
-              if chatroom_id:
-                print(f"[DEBUG] ✓ Success! Found chatroom: {chatroom_id}")
-                return {
-                    "success": True,
-                    "chatroom_id": chatroom_id,
-                    "channel_id": data.get("id"),
-                    "user_id": data.get("user_id"),
-                    "slug": channel_slug,
-                }
-              else:
-                print(f"[DEBUG] No chatroom_id found in response")
-            except Exception as je:
-              print(f"[DEBUG] JSON parse error: {je}")
-          else:
-            print(f"[DEBUG] Non-200 status: {resp.status_code}")
-            print(f"[DEBUG] Response text (first 200 chars): {resp.text[:200]}")
-        except Exception as e:
-          print(f"[DEBUG] {endpoint_version} Exception: {type(e).__name__}: {str(e)[:150]}")
-          time.sleep(1)
-          continue
-      
-      if attempt < 2:
-        print(f"[DEBUG] Waiting 2s before retry...")
-        time.sleep(2)
-    
-    print(f"[DEBUG] ✗ Failed after all retries for {channel_slug}")
-    return {"success": False, "chatroom_id": None, "channel_id": None, "user_id": None}
-
-  def send_message(self, chatroom_id, message):
-    """Doğrudan mesaj gönder"""
-    print(f"[DEBUG] Sending message to chatroom {chatroom_id}")
-    
-    url = f"https://kick.com/api/v2/messages/send/{chatroom_id}"
-    payload = {"content": message, "type": "message"}
-    
-    headers = self._get_headers(include_auth=True, include_token=True)
-    
-    for attempt in range(2):
+    """Kanal kullanıcı ID (user_id), kanal ID (channel_id) ve sohbet (chatroom_id) verilerini çeker."""
+    headers = {
+        "accept": "application/json, text/plain, */*",
+        "user-agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            " (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        ),
+    }
+    endpoints = [
+        f"https://kick.com/api/v2/channels/{channel_slug}",
+        f"https://kick.com/api/v1/channels/{channel_slug}",
+    ]
+    for url in endpoints:
       try:
-        print(f"[DEBUG] POST {url} (attempt {attempt + 1}/2)")
-        resp = crequests.post(url, headers=headers, json=payload, timeout=10)
-        print(f"[DEBUG] Response: {resp.status_code}")
-        
-        if 200 <= resp.status_code < 300:
-          print(f"[DEBUG] ✓ Message sent!")
-          return True
-        else:
-          print(f"[DEBUG] Error response: {resp.text[:200]}")
-      except Exception as e:
-        print(f"[DEBUG] Exception: {str(e)[:100]}")
-        if attempt < 1:
-          time.sleep(1)
-    
-    print(f"[DEBUG] ✗ Failed to send message")
-    return False
+        resp = crequests.get(
+            url, headers=headers, impersonate="chrome120", timeout=8
+        )
+        if resp.status_code == 200:
+          data = resp.json()
+          chatroom = data.get("chatroom", {})
+          chatroom_id = chatroom.get("id") or data.get("chatroom_id")
+          if chatroom_id:
+            return {
+                "success": True,
+                "chatroom_id": chatroom_id,
+                "channel_id": data.get("id"),
+                "user_id": data.get("user_id"),
+                "slug": data.get("slug", channel_slug),
+            }
+      except Exception:
+        pass
+    return {
+        "success": False,
+        "chatroom_id": None,
+        "channel_id": None,
+        "user_id": None,
+    }
 
   def follow_user(self, broadcaster_identifier):
-    """Kullanıcı takip et"""
-    print(f"[DEBUG] Following: {broadcaster_identifier}")
-    
-    for endpoint_version in ["v2", "v1"]:
+    """Belirtilen yayıncıyı/kullanıcıyı (ID veya Slug) takip etmeye çalışır."""
+    headers = {
+        "accept": "application/json, text/plain, */*",
+        "authorization": f"Bearer {self.token}",
+        "content-type": "application/json",
+        "origin": "https://kick.com",
+        "referer": f"https://kick.com/{broadcaster_identifier}",
+        "user-agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            " (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        ),
+        "x-app-platform": "web",
+    }
+
+    # v2 ve v1 endpoint denemeleri
+    endpoints = [
+        f"https://kick.com/api/v2/channels/{broadcaster_identifier}/follow",
+        f"https://kick.com/api/v1/channels/{broadcaster_identifier}/follow",
+    ]
+
+    for url in endpoints:
       try:
-        url = f"https://kick.com/api/{endpoint_version}/channels/{broadcaster_identifier}/follow"
-        print(f"[DEBUG] POST {url}")
-        
-        headers = self._get_headers(include_auth=True, include_token=True)
-        resp = crequests.post(url, headers=headers, json={}, timeout=8)
-        print(f"[DEBUG] Status: {resp.status_code}")
-        
-        if resp.status_code in (200, 201, 204):
-          return True, f"[✓] Followed {broadcaster_identifier}"
-        elif resp.status_code in (400, 409) or "already" in resp.text.lower():
-          return True, f"[i] Already following {broadcaster_identifier}"
-      except Exception as e:
-        print(f"[DEBUG] {endpoint_version} error: {str(e)[:100]}")
-        continue
-    
-    return False, f"[✗] Failed to follow {broadcaster_identifier}"
+        response = crequests.post(
+            url, headers=headers, json={}, impersonate="chrome120", timeout=8
+        )
+        if response.status_code in (200, 201, 204):
+          return (
+              True,
+              f"[BAŞARILI] {self.token_masked} -> '{broadcaster_identifier}'"
+              " takip edildi.",
+          )
+        elif (
+            response.status_code in (400, 409)
+            or "already" in response.text.lower()
+        ):
+          return (
+              True,
+              f"[BİLGİ] {self.token_masked} -> '{broadcaster_identifier}' zaten"
+              " takip ediliyor.",
+          )
+      except Exception:
+        pass
+
+    return (
+        False,
+        f"[TAKİP DENE] {self.token_masked} -> '{broadcaster_identifier}' takip"
+        " isteği atıldı.",
+    )
 
 
 def login_required(f):
@@ -297,95 +252,135 @@ def run_follow_automation_for_all(channel_slug, channel_info, tokens):
 
 
 def bot_worker():
-  """Mesaj gönderme botu - robust versiyon"""
   global is_running
   current_channel = None
   channel_info = {}
-  refresh_counter = 0
 
   while is_running:
-    try:
-      # Config kontrol
-      if not config.get("tokens") or not config.get("messages"):
-        bot_logs.insert(0, "[HATA] Token veya mesaj listesi boş!")
-        time.sleep(5)
-        continue
+    if not config["tokens"] or not config["messages"]:
+      bot_logs.insert(
+          0, "[HATA] Token veya mesaj listesi boş! Bot durduruldu."
+      )
+      is_running = False
+      break
 
-      target_channel = config.get("channel", "sefoge").strip().lower()
-      if not target_channel:
-        bot_logs.insert(0, "[HATA] Hedef kanal adı boş!")
-        time.sleep(5)
-        continue
+    target_channel = config.get("channel", "sefoge").strip().lower()
+    if not target_channel:
+      bot_logs.insert(0, "[HATA] Hedef kanal adı boş! Bot durduruldu.")
+      is_running = False
+      break
 
-      # Kanal bilgilerini her 60 saniyede veya kanal değişikliğinde yenile
-      if current_channel != target_channel or refresh_counter % 120 == 0:
-        current_channel = target_channel
-        bot = KickFollowAutomation(config["tokens"][0])
-        channel_info = bot.get_channel_info(current_channel)
-        
-        if channel_info.get("success"):
-          bot_logs.insert(0, f"[SİSTEM] Channel info fetched: {current_channel} (Chatroom: {channel_info['chatroom_id']})")
-        else:
-          bot_logs.insert(0, f"[HATA] Could not fetch channel info for {current_channel}")
-          time.sleep(5)
-          refresh_counter += 1
-          continue
+    # Kanal değiştiyse veya chatroom_id eksikse kanal bilgilerini çek
+    if current_channel != target_channel or not channel_info.get("chatroom_id"):
+      current_channel = target_channel
+      helper = KickFollowAutomation(config["tokens"][0])
+      info = helper.get_channel_info(current_channel)
 
-      # Mesaj gönderme loop
-      tokens = list(config.get("tokens", []))
-      messages = list(config.get("messages", []))
-      delay = float(config.get("delay", 1))
-      window = delay * 10
-      
-      if not tokens or not messages:
-        time.sleep(5)
-        refresh_counter += 1
-        continue
+      if info["success"] and info["chatroom_id"]:
+        channel_info = info
+        bot_logs.insert(
+            0,
+            f"[SİSTEM] '{current_channel}' kanal bilgileri alındı (User ID:"
+            f" {info['user_id']}, Chatroom ID: {info['chatroom_id']})",
+        )
+      else:
+        channel_info = {
+            "slug": current_channel,
+            "chatroom_id": None,
+            "channel_id": None,
+            "user_id": None,
+        }
+        bot_logs.insert(0, f"[HATA] '{current_channel}' kanal bilgileri alınamadı!")
 
-      random.shuffle(tokens)
-      chatroom_id = channel_info.get("chatroom_id")
-      
-      if not chatroom_id:
-        bot_logs.insert(0, "[HATA] No chatroom_id available!")
-        time.sleep(5)
-        refresh_counter += 1
-        continue
+    # === TUR BAZLI SİSTEM ===
+    # Toplam pencere süresi = girilen delay * 10
+    # Bu süre içinde tüm hesaplar 1'er kez mesaj atacak
+    active_tokens = list(config["tokens"])
+    delay_sec = float(config["delay"])
+    window_sec = delay_sec * 10  # Toplam pencere süresi
+    token_count = len(active_tokens)
 
-      bot_logs.insert(0, f"[SİSTEM] Starting round: {len(tokens)} accounts, {window:.0f}s window")
-      avg_gap = window / len(tokens)
-
-      for i, token in enumerate(tokens):
-        if not is_running:
-          break
-
-        message = random.choice(messages)
-        token_display = token[:10] + "..."
-        
-        bot = KickFollowAutomation(token)
-        success = bot.send_message(chatroom_id, message)
-        
-        if success:
-          bot_logs.insert(0, f"[✓] {token_display} sent: {message[:50]}")
-        else:
-          bot_logs.insert(0, f"[✗] {token_display} failed to send message")
-        
-        # Keep logs size manageable
-        if len(bot_logs) > 100:
-          bot_logs.pop()
-
-        # Wait between messages
-        if i < len(tokens) - 1 and is_running:
-          wait = random.uniform(avg_gap * 0.5, avg_gap * 1.5)
-          wait = max(1.0, wait)
-          time.sleep(wait)
-
-      refresh_counter += 1
-
-    except Exception as e:
-      bot_logs.insert(0, f"[KRITIK HATA] {str(e)[:100]}")
-      time.sleep(5)
-      refresh_counter += 1
+    if token_count == 0:
+      time.sleep(1)
       continue
+
+    # Tokenları karıştır (rastgele sıra)
+    random.shuffle(active_tokens)
+
+    # Her token arasındaki ortalama bekleme süresini hesapla
+    # Pencereyi token sayısına böl, ama ufak rastgelelik ekle
+    avg_gap = window_sec / token_count
+
+    bot_logs.insert(
+        0,
+        f"[SİSTEM] Yeni tur başladı: {token_count} hesap, {window_sec:.0f}sn pencere"
+    )
+
+    for i, selected_token in enumerate(active_tokens):
+      if not is_running:
+        break
+
+      selected_message = random.choice(config["messages"])
+      chatroom_id = channel_info.get("chatroom_id")
+
+      if not chatroom_id:
+        bot_logs.insert(0, f"[HATA] [{current_channel}] Chatroom ID bulunamadı!")
+        time.sleep(2)
+        break
+
+      # Kick.com v2 mesaj gönderme endpoint'i (Doğru endpoint: POST https://kick.com/api/v2/messages/send/{chatroom_id})
+      url = f"https://kick.com/api/v2/messages/send/{chatroom_id}"
+      
+      payload = {
+          "content": selected_message,
+          "type": "message"
+      }
+
+      headers = {
+          "accept": "application/json, text/plain, */*",
+          "authorization": f"Bearer {selected_token}",
+          "content-type": "application/json",
+          "origin": "https://kick.com",
+          "referer": f"https://kick.com/{current_channel}",
+          "user-agent": (
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+              " (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+          ),
+          "x-app-platform": "web",
+      }
+
+      try:
+        response = crequests.post(
+            url,
+            headers=headers,
+            json=payload,
+            impersonate="chrome120",
+            timeout=10,
+        )
+        token_masked = selected_token[:10] + "..."
+        if 200 <= response.status_code < 300:
+          log_msg = f"[BAŞARILI] [{current_channel}] Hesap: {token_masked} | Mesaj: '{selected_message}' | Kod: {response.status_code}"
+        elif "FOLLOWERS_ONLY_ERROR" in response.text:
+          log_msg = (
+              f"[TAKİPÇİ SOHBETİ UYARISI] [{current_channel}] Hesap:"
+              f" {selected_token} - Bu kanalda Sadece Takipçiler sohbet modu aktif!"
+          )
+        else:
+          log_msg = f"[HATA] [{current_channel}] Hesap: {selected_token} | Kod: {response.status_code} - {response.text}"
+      except Exception as e:
+        log_msg = f"[BAĞLANTI HATASI] {str(e)}"
+
+      bot_logs.insert(0, log_msg)
+      if len(bot_logs) > 50:
+        bot_logs.pop()
+
+      # Son token değilse, sonraki mesaja kadar rastgele bekle
+      if i < token_count - 1 and is_running:
+        # avg_gap etrafında %50 sapma ile rastgele bekleme
+        wait = random.uniform(avg_gap * 0.5, avg_gap * 1.5)
+        # Çok kısa olmasın, minimum 2 saniye
+        wait = max(2.0, wait)
+        time.sleep(wait)
 
 
 @app.route("/")
@@ -625,13 +620,10 @@ def update_config():
 
 @app.route("/get-chatroom/<channel_slug>")
 def get_chatroom(channel_slug):
-    try:
-        token = config["tokens"][0] if config.get("tokens") else ""
-        helper = KickFollowAutomation(token)
-        info = helper.get_channel_info(channel_slug.strip().lower())
-        return jsonify(info)
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+    token = config["tokens"][0] if config.get("tokens") else ""
+    helper = KickFollowAutomation(token)
+    info = helper.get_channel_info(channel_slug.strip().lower())
+    return jsonify(info)
 
 
 @app.route("/start", methods=["POST"])
@@ -789,12 +781,13 @@ def test_token():
         "accept": "application/json",
         "authorization": f"Bearer {token}",
         "user-agent": (
-            "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            " (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         )
     }
     
     try:
-        resp = crequests.get("https://kick.com/api/v1/user", headers=headers, timeout=10)
+        resp = crequests.get("https://kick.com/api/v1/user", headers=headers, impersonate="chrome120", timeout=10)
         if resp.status_code == 200:
             data = resp.json()
             username = data.get("username", "Bilinmiyor")
