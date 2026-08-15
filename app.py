@@ -31,16 +31,6 @@ ADMIN_USERNAME = "taxer"
 ADMIN_PASSWORD = "babaproxx123"
 DB_FILE = "users.db"
 
-# Render environment'dan token oku
-KICK_TOKEN = os.getenv('KICK_TOKEN', '')
-if not KICK_TOKEN and os.path.exists("config.json"):
-    try:
-        with open("config.json", "r", encoding="utf-8") as f:
-            cfg = json.load(f)
-            KICK_TOKEN = cfg.get("tokens", [""])[0]
-    except:
-        pass
-
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
@@ -633,33 +623,12 @@ def update_config():
 @app.route("/get-chatroom/<channel_slug>")
 def get_chatroom(channel_slug):
     try:
-        # Render'de KICK_TOKEN environment variable'ından al
-        token = KICK_TOKEN or config["tokens"][0] if config.get("tokens") else ""
-        
-        if not token:
-            return jsonify({
-                "success": False,
-                "error": "Kick token bulunamadı",
-                "chatroom_id": None
-            }), 500
-        
+        token = config["tokens"][0] if config.get("tokens") else ""
         helper = KickFollowAutomation(token)
         info = helper.get_channel_info(channel_slug.strip().lower())
-        
-        if not info.get("success"):
-            return jsonify({
-                "success": False,
-                "error": f"Kanal '{channel_slug}' bulunamadı veya erişilemedi",
-                "chatroom_id": None
-            }), 404
-        
         return jsonify(info)
     except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": str(e),
-            "chatroom_id": None
-        }), 500
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route("/start", methods=["POST"])
