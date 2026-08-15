@@ -1394,8 +1394,8 @@
         // ==========================================
         // SERVER DURUM DEĞİŞKENLERİ
         // ==========================================
-        const logged_in = {{ 'true' if logged_in else 'false' }};
-        let userPoints = {{ points if points else 0 }};
+        const logged_in = true;  // Backend'de set edilecek
+        let userPoints = 0;  // Backend'de set edilecek
 
         // Moderasyon verilerini sayfa yüklenirken loadla
         let moderationUsers = {};

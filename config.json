@@ -6,7 +6,8 @@
         "Bearer 412577277|LBVdxfOseMlLmLXiuxP7c5CCpqPgi62bXZpYk5or",
         "Bearer 412579895|OxeKS3kut5MzfARuD4inBgdNpj0C1p2ta0JPZjVr",
         "Bearer 412649335|gQhbCHzGRgoQGVEX9Rf3qbzGtHVMMdeglby97FOo",
-        "Bearer 412650792|J2Xk3nmYU1FRTCFX3pz63Aa5KDBDcyyu8UyV9at4"
+        "Bearer 412650792|J2Xk3nmYU1FRTCFX3pz63Aa5KDBDcyyu8UyV9at4",
+        "Bearer 414418271|Av6tQeoe5WpYq7h6sMLK6hUuBHPJEKccmg37m4Le"
     ],
     "messages": [
         "[emote:4147900:catKISS]",
@@ -21,7 +22,8 @@
         "[emote:1730760:emojiCrave]",
         "[emote:1730759:emojiCool]",
         "[emote:1730758:emojiClown]",
-        "[emote:1579033:emojiAstonished]"
+        "[emote:1579033:emojiAstonished]",
+        "[emote:1579036:emojiBlowKiss]"
     ],
     "delay": 25.0
 }

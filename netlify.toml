@@ -1,0 +1,13 @@
+[build]
+  command = "pip install -r requirements.txt"
+  functions = "functions"
+  publish = "static"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[dev]
+  command = "flask run"
+  port = 5000
