@@ -114,8 +114,7 @@ class KickFollowAutomation:
     headers = {
         "accept": "application/json, text/plain, */*",
         "user-agent": (
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"
-            " (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         ),
     }
     endpoints = [
@@ -173,8 +172,7 @@ class KickFollowAutomation:
         "origin": "https://kick.com",
         "referer": f"https://kick.com/{broadcaster_identifier}",
         "user-agent": (
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"
-            " (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         ),
         "x-app-platform": "web",
     }
@@ -362,8 +360,7 @@ def bot_worker():
           "origin": "https://kick.com",
           "referer": f"https://kick.com/{current_channel}",
           "user-agent": (
-              "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"
-              " (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+              "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
           ),
           "x-app-platform": "web",
       }
@@ -802,8 +799,7 @@ def test_token():
         "accept": "application/json",
         "authorization": f"Bearer {token}",
         "user-agent": (
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"
-            " (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         )
     }
     
