@@ -27,7 +27,12 @@ app.secret_key = "kick_bot_super_secret_key_2026"
 
 ADMIN_USERNAME = "taxer"
 ADMIN_PASSWORD = "babaproxx123"
-DB_FILE = "users.db"
+
+# Database path - production için /tmp kullan
+if os.environ.get('RENDER'):
+    DB_FILE = "/tmp/users.db"
+else:
+    DB_FILE = "users.db"
 
 def init_db():
     conn = sqlite3.connect(DB_FILE)
@@ -801,4 +806,5 @@ def test_token():
 
 
 if __name__ == "__main__":
-  app.run(host="0.0.0.0", port=5000, debug=True)
+  port = int(os.environ.get("PORT", 5000))
+  app.run(host="0.0.0.0", port=port, debug=False)
