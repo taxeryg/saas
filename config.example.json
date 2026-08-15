@@ -1,0 +1,11 @@
+{
+    "channel": "sefoge",
+    "tokens": [
+        "Bearer YOUR_KICK_TOKEN_HERE"
+    ],
+    "messages": [
+        "Selam!",
+        "Merhaba!"
+    ],
+    "delay": 25.0
+}

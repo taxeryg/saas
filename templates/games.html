@@ -1508,22 +1508,34 @@
 
         // Belirtilen kanalına bağlan
         async function connectToKickChannel(channelName) {
-            if (!logged_in) return;
+            console.log('🔌 Kick bağlantısı başlatılıyor:', channelName);
+            
+            if (!logged_in) {
+                console.log('❌ Login değil, bağlanmıyor');
+                return;
+            }
             
             // Zaten bağlıysa ve aynı kanalsa, tekrar bağlanma
             if (kickWs && kickWs.readyState === WebSocket.OPEN && activeChannel === channelName) {
+                console.log('✅ Zaten bağlı:', channelName);
                 return;
             }
             
             try {
-                const res = await fetch(`/get-chatroom/${channelName}`);
+                console.log('📡 Chatroom ID çekiliyor...');
+                const res = await fetch(`${API_BASE_URL}/get-chatroom/${channelName}`);
                 const data = await res.json();
                 
+                console.log('📊 Chatroom response:', data);
+                
                 if (data.success && data.chatroom_id) {
+                    console.log('✅ Chatroom ID alındı:', data.chatroom_id);
                     startKickChatListener(data.chatroom_id, channelName);
+                } else {
+                    console.error('❌ Chatroom ID alınamadı:', data);
                 }
             } catch (err) {
-                console.log('Kick bağlantı hatası:', err);
+                console.error('❌ Kick bağlantı hatası:', err);
             }
         }
 
