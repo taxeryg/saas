@@ -144,30 +144,41 @@ class KickFollowAutomation:
           
           resp = crequests.get(url, headers=self._get_headers(), timeout=10)
           print(f"[DEBUG] Status: {resp.status_code}")
+          print(f"[DEBUG] Response length: {len(resp.text)}")
           
           if resp.status_code == 200:
-            data = resp.json()
-            
-            # Chatroom ID'sini çeşitli yerlerden ara
-            chatroom_id = (
-                data.get("chatroom", {}).get("id") or
-                data.get("chatroom_id") or
-                data.get("id")
-            )
-            
-            if chatroom_id:
-              print(f"[DEBUG] ✓ Success! Found chatroom: {chatroom_id}")
-              return {
-                  "success": True,
-                  "chatroom_id": chatroom_id,
-                  "channel_id": data.get("id"),
-                  "user_id": data.get("user_id"),
-                  "slug": channel_slug,
-              }
-            else:
-              print(f"[DEBUG] Response has no chatroom_id")
+            try:
+              data = resp.json()
+              print(f"[DEBUG] JSON parsed OK. Top-level keys: {list(data.keys())}")
+              print(f"[DEBUG] Full response (first 500 chars): {str(data)[:500]}")
+              
+              # Chatroom ID'sini çeşitli yerlerden ara
+              chatroom_id = (
+                  data.get("chatroom", {}).get("id") or
+                  data.get("chatroom_id") or
+                  data.get("id")
+              )
+              
+              print(f"[DEBUG] Extracted chatroom_id: {chatroom_id}")
+              
+              if chatroom_id:
+                print(f"[DEBUG] ✓ Success! Found chatroom: {chatroom_id}")
+                return {
+                    "success": True,
+                    "chatroom_id": chatroom_id,
+                    "channel_id": data.get("id"),
+                    "user_id": data.get("user_id"),
+                    "slug": channel_slug,
+                }
+              else:
+                print(f"[DEBUG] No chatroom_id found in response")
+            except Exception as je:
+              print(f"[DEBUG] JSON parse error: {je}")
+          else:
+            print(f"[DEBUG] Non-200 status: {resp.status_code}")
+            print(f"[DEBUG] Response text (first 200 chars): {resp.text[:200]}")
         except Exception as e:
-          print(f"[DEBUG] {endpoint_version} Error: {str(e)[:100]}")
+          print(f"[DEBUG] {endpoint_version} Exception: {type(e).__name__}: {str(e)[:150]}")
           time.sleep(1)
           continue
       
