@@ -22,7 +22,7 @@ except ImportError:
 
 from kick_register import KickAccountCreator, create_multiple_accounts
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='templates', static_folder='static')
 app.secret_key = "kick_bot_super_secret_key_2026"
 
 ADMIN_USERNAME = "taxer"
