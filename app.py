@@ -121,25 +121,31 @@ class KickFollowAutomation:
         f"https://kick.com/api/v2/channels/{channel_slug}",
         f"https://kick.com/api/v1/channels/{channel_slug}",
     ]
-    for url in endpoints:
-      try:
-        resp = crequests.get(
-            url, headers=headers, impersonate="chrome120", timeout=8
-        )
-        if resp.status_code == 200:
-          data = resp.json()
-          chatroom = data.get("chatroom", {})
-          chatroom_id = chatroom.get("id") or data.get("chatroom_id")
-          if chatroom_id:
-            return {
-                "success": True,
-                "chatroom_id": chatroom_id,
-                "channel_id": data.get("id"),
-                "user_id": data.get("user_id"),
-                "slug": data.get("slug", channel_slug),
-            }
-      except Exception:
-        pass
+    
+    # Retry logic: 3 kez dene
+    for retry in range(3):
+      for url in endpoints:
+        try:
+          resp = crequests.get(
+              url, headers=headers, impersonate="chrome120", timeout=15
+          )
+          if resp.status_code == 200:
+            data = resp.json()
+            chatroom = data.get("chatroom", {})
+            chatroom_id = chatroom.get("id") or data.get("chatroom_id")
+            if chatroom_id:
+              return {
+                  "success": True,
+                  "chatroom_id": chatroom_id,
+                  "channel_id": data.get("id"),
+                  "user_id": data.get("user_id"),
+                  "slug": data.get("slug", channel_slug),
+              }
+        except Exception as e:
+          if retry < 2:
+            time.sleep(2)  # 2 saniye bekle retry öncesi
+          continue
+    
     return {
         "success": False,
         "chatroom_id": None,
