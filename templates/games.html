@@ -1394,6 +1394,12 @@
         // ==========================================
         // SERVER DURUM DEĞİŞKENLERİ
         // ==========================================
+        // API CONFIGURATION
+        // ==========================================
+        const API_BASE_URL = window.location.hostname === 'localhost' 
+            ? 'http://localhost:5000'
+            : 'https://your-backend-url.onrender.com';  // Deploy sonra güncellenecek
+        
         const logged_in = true;  // Backend'de set edilecek
         let userPoints = 0;  // Backend'de set edilecek
 
@@ -1586,7 +1592,7 @@
             modAuthAlert.style.display = "block";
 
             try {
-                const response = await fetch('/admin-login', {
+                const response = await fetch(`${API_BASE_URL}/admin-login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username: 'taxer', password: passwordVal })
@@ -1932,7 +1938,7 @@
             adminAlert.style.display = "block";
 
             try {
-                const response = await fetch('/admin-login', {
+                const response = await fetch(`${API_BASE_URL}/admin-login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username: usernameVal, password: passwordVal })
@@ -3532,7 +3538,7 @@
         async function loadLatestYouTubeVideo() {
             console.log('YouTube function başladı...');
             try {
-                const response = await fetch('/get-youtube-latest/sefoge');
+                const response = await fetch(`${API_BASE_URL}/get-youtube-latest/sefoge`);
                 const data = await response.json();
                 console.log('YouTube response:', data);
                 
