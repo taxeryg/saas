@@ -110,6 +110,7 @@ class KickFollowAutomation:
 
   def get_channel_info(self, channel_slug):
     """Kanal kullanıcı ID (user_id), kanal ID (channel_id) ve sohbet (chatroom_id) verilerini çeker."""
+    print(f"[DEBUG] get_channel_info: {channel_slug}")
     headers = {
         "accept": "application/json, text/plain, */*",
         "user-agent": (
@@ -124,16 +125,22 @@ class KickFollowAutomation:
     
     # Retry logic: 3 kez dene
     for retry in range(3):
+      print(f"[DEBUG] Retry {retry + 1}/3 for {channel_slug}")
       for url in endpoints:
         try:
+          print(f"[DEBUG] GET {url}")
           resp = crequests.get(
               url, headers=headers, impersonate="chrome120", timeout=15
           )
+          print(f"[DEBUG] Status: {resp.status_code}")
           if resp.status_code == 200:
             data = resp.json()
+            print(f"[DEBUG] Data keys: {list(data.keys())}")
             chatroom = data.get("chatroom", {})
             chatroom_id = chatroom.get("id") or data.get("chatroom_id")
+            print(f"[DEBUG] Chatroom ID: {chatroom_id}")
             if chatroom_id:
+              print(f"[DEBUG] SUCCESS - Found chatroom: {chatroom_id}")
               return {
                   "success": True,
                   "chatroom_id": chatroom_id,
@@ -142,10 +149,13 @@ class KickFollowAutomation:
                   "slug": data.get("slug", channel_slug),
               }
         except Exception as e:
+          print(f"[DEBUG] Exception {type(e).__name__}: {str(e)}")
           if retry < 2:
-            time.sleep(2)  # 2 saniye bekle retry öncesi
+            print(f"[DEBUG] Waiting 2s before retry...")
+            time.sleep(2)
           continue
     
+    print(f"[DEBUG] FAILED - All retries exhausted for {channel_slug}")
     return {
         "success": False,
         "chatroom_id": None,
