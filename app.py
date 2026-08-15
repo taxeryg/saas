@@ -620,10 +620,25 @@ def update_config():
 
 @app.route("/get-chatroom/<channel_slug>")
 def get_chatroom(channel_slug):
-    token = config["tokens"][0] if config.get("tokens") else ""
-    helper = KickFollowAutomation(token)
-    info = helper.get_channel_info(channel_slug.strip().lower())
-    return jsonify(info)
+    try:
+        token = config["tokens"][0] if config.get("tokens") else ""
+        helper = KickFollowAutomation(token)
+        info = helper.get_channel_info(channel_slug.strip().lower())
+        
+        if not info.get("success"):
+            return jsonify({
+                "success": False,
+                "error": f"Kanal '{channel_slug}' bulunamadı veya erişilemedi",
+                "chatroom_id": None
+            }), 404
+        
+        return jsonify(info)
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "chatroom_id": None
+        }), 500
 
 
 @app.route("/start", methods=["POST"])
