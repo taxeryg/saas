@@ -281,6 +281,30 @@
             }
         }
 
+        async function fetchAndFillChatroomId(channelName) {
+            /**
+             * Verilen kanal adı için Kick API'den chatroom ID'yi çeker,
+             * formdaki #chatroom_id alanını otomatik doldurur ve ayarları sessizce kaydeder.
+             * Başarılıysa chatroom_id'yi döndürür, aksi hâlde null döndürür.
+             */
+            const manualChatroomIdInput = document.getElementById('chatroom_id');
+            try {
+                const res = await fetch(`/get-chatroom/${channelName}`);
+                const data = await res.json();
+                if (data.success && data.chatroom_id) {
+                    if (manualChatroomIdInput) {
+                        manualChatroomIdInput.value = data.chatroom_id;
+                    }
+                    await saveConfigFormSilently();
+                    showToast(`✅ Chatroom ID otomatik alındı: ${data.chatroom_id}`);
+                    return data.chatroom_id;
+                }
+            } catch (err) {
+                console.error('Chatroom ID alınamadı:', err);
+            }
+            return null;
+        }
+
         async function connectToLiveChat() {
             const channelInput = document.getElementById('channel');
             const channelName = channelInput ? channelInput.value.trim().toLowerCase() : '';
@@ -296,33 +320,23 @@
             }
 
             try {
-                // Eğer formda manuel chatroom_id girilmişse, doğrudan onu kullan
                 const manualChatroomIdInput = document.getElementById('chatroom_id');
-                const manualChatroomId = manualChatroomIdInput ? manualChatroomIdInput.value.trim() : '';
+                let chatroomId = manualChatroomIdInput ? manualChatroomIdInput.value.trim() : '';
 
-                if (manualChatroomId) {
-                    currentChatroomId = manualChatroomId;
-                    startPusherWebSocket(currentChatroomId, channelName);
-                    return;
+                // Chatroom ID yoksa otomatik çek
+                if (!chatroomId) {
+                    chatroomId = await fetchAndFillChatroomId(channelName);
                 }
 
-                const res = await fetch(`/get-chatroom/${channelName}`);
-                const data = await res.json();
-
-                if (!data.success || !data.chatroom_id) {
+                if (!chatroomId) {
                     if (statusBar) {
                         statusBar.className = 'chat-status-bar error';
-                        statusBar.innerText = `❌ '${channelName}' kanalı için chatroom ID bulunamadı! (Lütfen manuel Chatroom ID girmeyi deneyin)`;
+                        statusBar.innerText = `❌ '${channelName}' kanalı için chatroom ID bulunamadı! (Manuel Chatroom ID girmeyi deneyin)`;
                     }
                     return;
                 }
 
-                currentChatroomId = data.chatroom_id;
-                if (manualChatroomIdInput) {
-                    manualChatroomIdInput.value = data.chatroom_id;
-                    // Otomatik ayar kaydetme işlemini tetikle
-                    await saveConfigFormSilently();
-                }
+                currentChatroomId = chatroomId;
                 startPusherWebSocket(currentChatroomId, channelName);
             } catch (err) {
                 if (statusBar) {
@@ -450,12 +464,21 @@
 
             const channelInput = document.getElementById('channel');
             if (channelInput) {
+                // 'change' eventi (focus kaybettiğinde) yeni kanal için chatroom ID'yi çekip doldurur
                 channelInput.addEventListener('change', function() {
                     const chatroomIdInput = document.getElementById('chatroom_id');
                     if (chatroomIdInput) {
-                        chatroomIdInput.value = ''; // Yeni kanal girildiğinde eski ID'yi sıfırla
+                        chatroomIdInput.value = ''; // Eski ID'yi sıfırla
                     }
                     connectToLiveChat();
+                });
+                // 'blur' eventi de tetikle (input alanından çıkınca)
+                channelInput.addEventListener('blur', function() {
+                    const chatroomIdInput = document.getElementById('chatroom_id');
+                    const newChannel = this.value.trim().toLowerCase();
+                    if (chatroomIdInput && !chatroomIdInput.value.trim() && newChannel) {
+                        fetchAndFillChatroomId(newChannel);
+                    }
                 });
             }
 
@@ -491,6 +514,23 @@
         // ==================
         document.getElementById('config-form').addEventListener('submit', async function (e) {
             e.preventDefault();
+            const channelInput = document.getElementById('channel');
+            const chatroomIdInput = document.getElementById('chatroom_id');
+            const channelName = channelInput ? channelInput.value.trim().toLowerCase() : '';
+
+            // Chatroom ID boşsa, kaydetmeden önce otomatik çek
+            if (chatroomIdInput && !chatroomIdInput.value.trim() && channelName) {
+                const statusBar = document.getElementById('chat-status-bar');
+                if (statusBar) {
+                    statusBar.className = 'chat-status-bar connecting';
+                    statusBar.innerText = `⏳ '${channelName}' için chatroom ID alınıyor...`;
+                }
+                const fetchedId = await fetchAndFillChatroomId(channelName);
+                if (fetchedId) {
+                    currentChatroomId = fetchedId;
+                }
+            }
+
             const formData = new FormData(this);
             try {
                 const res = await fetch('/update', {
@@ -500,6 +540,8 @@
                 const data = await res.json();
                 if (data.success) {
                     alert('Ayarlar başarıyla güncellendi!');
+                    // Bağlantıyı yenile
+                    connectToLiveChat();
                 } else if (data.message) {
                     alert('Hata: ' + data.message);
                 }
