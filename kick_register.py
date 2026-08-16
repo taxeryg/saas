@@ -66,8 +66,9 @@ def _random_birthday():
 class KickAccountCreator:
     """Kick.com otomatik hesap oluşturma - çok aşamalı akış."""
 
-    def __init__(self, log_callback=None):
+    def __init__(self, log_callback=None, proxy=None):
         self.log_callback = log_callback or (lambda msg: None)
+        self.proxy = proxy
         self.email_client = None
         self.username = None
         self.password = None
@@ -80,10 +81,13 @@ class KickAccountCreator:
         self.log_callback(msg)
 
     def _create_session(self):
+        proxies = {"http": self.proxy, "https": self.proxy} if self.proxy else None
         if HAS_CURL_CFFI:
-            self.session = crequests.Session(impersonate="chrome120")
+            self.session = crequests.Session(impersonate="chrome120", proxies=proxies)
         else:
             self.session = crequests.Session()
+            if proxies:
+                self.session.proxies = proxies
 
     def _refresh_xsrf(self):
         """Session cookie'lerinden XSRF token'ı güncelle."""

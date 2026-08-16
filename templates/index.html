@@ -58,6 +58,20 @@
                         <input type="text" id="channel" name="channel" value="{{ config['channel'] }}"
                             placeholder="Örn: sefoge" required>
 
+                        <label for="chatroom_id">Sohbet Odası ID'si (Chatroom ID) - [Manuel Giriş]:</label>
+                        <input type="text" id="chatroom_id" name="chatroom_id" value="{{ config.get('chatroom_id', '') }}"
+                            placeholder="Örn: 24785190 (Chate bağlanılamadı hatası alırsanız doldurun)">
+                        <small style="color: #bbb; display: block; margin-top: -8px; margin-bottom: 12px; font-size: 11px;">
+                            💡 Canlı sunucularda Cloudflare engeli nedeniyle chatroom ID otomatik alınamayabilir. Tarayıcınızdan <code>https://kick.com/api/v2/channels/{kanal_adı}</code> adresine gidip, <code>chatroom -> id</code> değerini kopyalayarak buraya yapıştırabilirsiniz.
+                        </small>
+
+                        <label for="proxy">HTTP Proxy (Opsiyonel):</label>
+                        <input type="text" id="proxy" name="proxy" value="{{ config.get('proxy', '') }}"
+                            placeholder="Örn: http://kullanici:sifre@ip:port">
+                        <small style="color: #bbb; display: block; margin-top: -8px; margin-bottom: 12px; font-size: 11px;">
+                            💡 Cloudflare engelini aşmak için residential (konut) proxy kullanabilirsiniz.
+                        </small>
+
                         <label for="tokens">Bearer Tokenlar (Her satıra bir token):</label>
                         <textarea id="tokens" name="tokens" rows="4">{{ '\n'.join(config['tokens']) }}</textarea>
 
@@ -268,13 +282,23 @@
             }
 
             try {
+                // Eğer formda manuel chatroom_id girilmişse, doğrudan onu kullan
+                const manualChatroomIdInput = document.getElementById('chatroom_id');
+                const manualChatroomId = manualChatroomIdInput ? manualChatroomIdInput.value.trim() : '';
+
+                if (manualChatroomId) {
+                    currentChatroomId = manualChatroomId;
+                    startPusherWebSocket(currentChatroomId, channelName);
+                    return;
+                }
+
                 const res = await fetch(`/get-chatroom/${channelName}`);
                 const data = await res.json();
 
                 if (!data.success || !data.chatroom_id) {
                     if (statusBar) {
                         statusBar.className = 'chat-status-bar error';
-                        statusBar.innerText = `❌ '${channelName}' kanalı için chatroom ID bulunamadı!`;
+                        statusBar.innerText = `❌ '${channelName}' kanalı için chatroom ID bulunamadı! (Lütfen manuel Chatroom ID girmeyi deneyin)`;
                     }
                     return;
                 }

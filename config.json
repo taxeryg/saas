@@ -1,5 +1,5 @@
 {
-    "channel": "sefoge",
+    "channel": "egeazakli",
     "tokens": [
         "Bearer 411197410|6y0ub6bqgySfYNngIIMf6kGHoFsTRGrJeOHHMxQn",
         "Bearer 412574841|WIaSWnCszIvAvshcpr7OfJ85LhwKDUGIln2qILcx",
@@ -7,23 +7,18 @@
         "Bearer 412579895|OxeKS3kut5MzfARuD4inBgdNpj0C1p2ta0JPZjVr",
         "Bearer 412649335|gQhbCHzGRgoQGVEX9Rf3qbzGtHVMMdeglby97FOo",
         "Bearer 412650792|J2Xk3nmYU1FRTCFX3pz63Aa5KDBDcyyu8UyV9at4",
-        "Bearer 414418271|Av6tQeoe5WpYq7h6sMLK6hUuBHPJEKccmg37m4Le"
+        "Bearer 414418271|Av6tQeoe5WpYq7h6sMLK6hUuBHPJEKccmg37m4Le",
+        "Bearer 414840807|z7bv88AVctylFT0Hg8XzYPRurFOFj5U2lAplZRn8",
+        "Bearer 414842482|E5zYv1O1OpNYDuLFPuqjrzkcMOafbEnng0g5itTq",
+        "Bearer 414846387|mfK6XV3G9Lc3YWnHxXiEk5pgBeyFsHDSC0Nv8Mm3",
+        "Bearer 414847452|jd3oeT7ZjnSfIqbBW49E92j43LZAt9UVg6lRhXYU",
+        "Bearer 414848813|BWOn0MLhjt2oOibp1WR6RYJkQm87ub1p5qvlvcYY",
+        "Bearer 414849740|xUCvWu0Ea6JPBqzAVkEbRNMaCCZ3WpF4UqIB2pTE",
+        "Bearer 414852854|olNoaC7O9qrTUO4xeu17OYrXbAuEBmZkIUPs5WVm",
+        "Bearer 414854956|678DXU3u8VROug3rEepi97ONwnm3P06sRhNEJ5S5"
     ],
     "messages": [
-        "[emote:4147900:catKISS]",
-        "[emote:4148081:Sadge]",
-        "[emote:39402:Flowie]",
-        "[emote:37226:KEKW]",
-        "[emote:1730752:emojiAngel]",
-        "[emote:1730753:emojiAngry]",
-        "[emote:1730754:emojiAwake]",
-        "[emote:1730756:emojiCheerful]",
-        "[emote:1730759:emojiCool]",
-        "[emote:1730760:emojiCrave]",
-        "[emote:1730759:emojiCool]",
-        "[emote:1730758:emojiClown]",
-        "[emote:1579033:emojiAstonished]",
-        "[emote:1579036:emojiBlowKiss]"
+        "1"
     ],
-    "delay": 25.0
+    "delay": 1.0
 }

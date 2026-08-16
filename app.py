@@ -78,6 +78,8 @@ CONFIG_FILE = "config.json"
 
 DEFAULT_CONFIG = {
     "channel": "sefoge",
+    "chatroom_id": "",
+    "proxy": "",
     "tokens": [
         "380813590|MlQJsOlYlAjKrEvnTWkswKdT0WntbptbgUiVUHrD",
         "409791057|0gKGwsYCKVxI5fZmcJIA1EqWrKfu5Z4LYhtHR581",
@@ -107,9 +109,10 @@ config = load_config()
 
 class KickFollowAutomation:
 
-  def __init__(self, token):
+  def __init__(self, token, proxy=None):
     self.token = token
     self.token_masked = token[:10] + "..." if token else "NO_TOKEN"
+    self.proxy = proxy
 
   def get_channel_info(self, channel_slug):
     """Kanal kullanıcı ID (user_id), kanal ID (channel_id) ve sohbet (chatroom_id) verilerini çeker."""
@@ -124,10 +127,11 @@ class KickFollowAutomation:
         f"https://kick.com/api/v2/channels/{channel_slug}",
         f"https://kick.com/api/v1/channels/{channel_slug}",
     ]
+    proxies = {"http": self.proxy, "https": self.proxy} if self.proxy else None
     for url in endpoints:
       try:
         resp = crequests.get(
-            url, headers=headers, impersonate="chrome120", timeout=8
+            url, headers=headers, impersonate="chrome120", timeout=8, proxies=proxies
         )
         if resp.status_code == 200:
           data = resp.json()
@@ -171,10 +175,11 @@ class KickFollowAutomation:
         f"https://kick.com/api/v1/channels/{broadcaster_identifier}/follow",
     ]
 
+    proxies = {"http": self.proxy, "https": self.proxy} if self.proxy else None
     for url in endpoints:
       try:
         response = crequests.post(
-            url, headers=headers, json={}, impersonate="chrome120", timeout=8
+            url, headers=headers, json={}, impersonate="chrome120", timeout=8, proxies=proxies
         )
         if response.status_code in (200, 201, 204):
           return (
@@ -278,24 +283,41 @@ def bot_worker():
     # Kanal değiştiyse veya chatroom_id eksikse kanal bilgilerini çek
     if current_channel != target_channel or not channel_info.get("chatroom_id"):
       current_channel = target_channel
-      helper = KickFollowAutomation(config["tokens"][0])
-      info = helper.get_channel_info(current_channel)
-
-      if info["success"] and info["chatroom_id"]:
-        channel_info = info
-        bot_logs.insert(
-            0,
-            f"[SİSTEM] '{current_channel}' kanal bilgileri alındı (User ID:"
-            f" {info['user_id']}, Chatroom ID: {info['chatroom_id']})",
-        )
-      else:
+      config_chatroom_id = config.get("chatroom_id", "").strip()
+      
+      if config_chatroom_id:
         channel_info = {
             "slug": current_channel,
-            "chatroom_id": None,
+            "chatroom_id": config_chatroom_id,
             "channel_id": None,
             "user_id": None,
         }
-        bot_logs.insert(0, f"[HATA] '{current_channel}' kanal bilgileri alınamadı!")
+        bot_logs.insert(
+            0,
+            f"[SİSTEM] '{current_channel}' için manuel Chatroom ID kullanılıyor: {config_chatroom_id}",
+        )
+      else:
+        helper = KickFollowAutomation(
+            config["tokens"][0] if config.get("tokens") else None,
+            proxy=config.get("proxy")
+        )
+        info = helper.get_channel_info(current_channel)
+
+        if info["success"] and info["chatroom_id"]:
+          channel_info = info
+          bot_logs.insert(
+              0,
+              f"[SİSTEM] '{current_channel}' kanal bilgileri alındı (User ID:"
+              f" {info['user_id']}, Chatroom ID: {info['chatroom_id']})",
+          )
+        else:
+          channel_info = {
+              "slug": current_channel,
+              "chatroom_id": None,
+              "channel_id": None,
+              "user_id": None,
+          }
+          bot_logs.insert(0, f"[HATA] '{current_channel}' kanal bilgileri alınamadı! (Lütfen manuel Chatroom ID girmeyi deneyin)")
 
     # === TUR BAZLI SİSTEM ===
     # Toplam pencere süresi = girilen delay * 10
@@ -355,12 +377,15 @@ def bot_worker():
       }
 
       try:
+        proxy_val = config.get("proxy", "").strip()
+        proxies = {"http": proxy_val, "https": proxy_val} if proxy_val else None
         response = crequests.post(
             url,
             headers=headers,
             json=payload,
             impersonate="chrome120",
             timeout=10,
+            proxies=proxies,
         )
         token_masked = selected_token[:10] + "..."
         if 200 <= response.status_code < 300:
@@ -604,11 +629,15 @@ def logout():
 def update_config():
   global config
   channel_raw = request.form.get("channel", "sefoge")
+  chatroom_id_raw = request.form.get("chatroom_id", "")
+  proxy_raw = request.form.get("proxy", "")
   tokens_raw = request.form.get("tokens", "")
   messages_raw = request.form.get("messages", "")
   delay_raw = request.form.get("delay", "4")
 
   config["channel"] = channel_raw.strip().lower()
+  config["chatroom_id"] = chatroom_id_raw.strip()
+  config["proxy"] = proxy_raw.strip()
   config["tokens"] = [t.strip() for t in tokens_raw.split("\n") if t.strip()]
   config["messages"] = [
       m.strip() for m in messages_raw.split("\n") if m.strip()
@@ -625,8 +654,15 @@ def update_config():
 
 @app.route("/get-chatroom/<channel_slug>")
 def get_chatroom(channel_slug):
+    if config.get("channel", "").strip().lower() == channel_slug.strip().lower() and config.get("chatroom_id"):
+        return jsonify({
+            "success": True,
+            "chatroom_id": config.get("chatroom_id"),
+            "slug": channel_slug
+        })
+
     token = config["tokens"][0] if config.get("tokens") else ""
-    helper = KickFollowAutomation(token)
+    helper = KickFollowAutomation(token, proxy=config.get("proxy"))
     info = helper.get_channel_info(channel_slug.strip().lower())
     return jsonify(info)
 
@@ -686,7 +722,7 @@ def account_worker(count, delay):
       break
 
     log_cb(f"\n[SİSTEM] ── Hesap {i + 1}/{count} ──")
-    creator = KickAccountCreator(log_callback=log_cb)
+    creator = KickAccountCreator(log_callback=log_cb, proxy=config.get("proxy"))
     result = creator.create_account()
 
     if result.get("success"):
@@ -792,7 +828,9 @@ def test_token():
     }
     
     try:
-        resp = crequests.get("https://kick.com/api/v1/user", headers=headers, impersonate="chrome120", timeout=10)
+        proxy_val = config.get("proxy", "").strip()
+        proxies = {"http": proxy_val, "https": proxy_val} if proxy_val else None
+        resp = crequests.get("https://kick.com/api/v1/user", headers=headers, impersonate="chrome120", timeout=10, proxies=proxies)
         if resp.status_code == 200:
             data = resp.json()
             username = data.get("username", "Bilinmiyor")
