@@ -83,7 +83,15 @@ class KickAccountCreator:
     def _create_session(self):
         proxies = {"http": self.proxy, "https": self.proxy} if self.proxy else None
         if HAS_CURL_CFFI:
-            self.session = crequests.Session(impersonate="chrome120", proxies=proxies)
+            try:
+                self.session = crequests.Session(impersonate="chrome120", proxies=proxies)
+            except Exception:
+                try:
+                    self.session = crequests.Session(impersonate="chrome", proxies=proxies)
+                except Exception:
+                    self.session = crequests.Session()
+                    if proxies:
+                        self.session.proxies = proxies
         else:
             self.session = crequests.Session()
             if proxies:

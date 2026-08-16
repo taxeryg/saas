@@ -267,6 +267,20 @@
             }, 3000);
         }
 
+        async function saveConfigFormSilently() {
+            const form = document.getElementById('config-form');
+            if (!form) return;
+            const formData = new FormData(form);
+            try {
+                await fetch('/update', {
+                    method: 'POST',
+                    body: formData
+                });
+            } catch (err) {
+                console.error('Otomatik ayar kaydetme hatası:', err);
+            }
+        }
+
         async function connectToLiveChat() {
             const channelInput = document.getElementById('channel');
             const channelName = channelInput ? channelInput.value.trim().toLowerCase() : '';
@@ -304,6 +318,11 @@
                 }
 
                 currentChatroomId = data.chatroom_id;
+                if (manualChatroomIdInput) {
+                    manualChatroomIdInput.value = data.chatroom_id;
+                    // Otomatik ayar kaydetme işlemini tetikle
+                    await saveConfigFormSilently();
+                }
                 startPusherWebSocket(currentChatroomId, channelName);
             } catch (err) {
                 if (statusBar) {
@@ -431,7 +450,13 @@
 
             const channelInput = document.getElementById('channel');
             if (channelInput) {
-                channelInput.addEventListener('change', connectToLiveChat);
+                channelInput.addEventListener('change', function() {
+                    const chatroomIdInput = document.getElementById('chatroom_id');
+                    if (chatroomIdInput) {
+                        chatroomIdInput.value = ''; // Yeni kanal girildiğinde eski ID'yi sıfırla
+                    }
+                    connectToLiveChat();
+                });
             }
 
             const addEmoteBtn = document.getElementById('add-emote-btn');

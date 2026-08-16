@@ -20,6 +20,27 @@ try:
 except ImportError:
   import requests as crequests
 
+def safe_request(method, url, **kwargs):
+  """curl_cffi ile güvenli istek yapar, chrome120 hatası durumunda chrome'a ve ardından standart requests'e düşer."""
+  method_name = method.lower()
+  func = getattr(crequests, method_name, None)
+  if func is None:
+    raise AttributeError(f"crequests has no method '{method_name}'")
+  try:
+    return func(url, **kwargs)
+  except Exception as e:
+    if "impersonate" in kwargs:
+      kwargs["impersonate"] = "chrome"
+      try:
+        return func(url, **kwargs)
+      except Exception:
+        kwargs.pop("impersonate", None)
+        try:
+          return func(url, **kwargs)
+        except Exception as final_err:
+          raise final_err
+    raise e
+
 from kick_register import KickAccountCreator, create_multiple_accounts
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
@@ -130,8 +151,8 @@ class KickFollowAutomation:
     proxies = {"http": self.proxy, "https": self.proxy} if self.proxy else None
     for url in endpoints:
       try:
-        resp = crequests.get(
-            url, headers=headers, impersonate="chrome120", timeout=8, proxies=proxies
+        resp = safe_request(
+            "GET", url, headers=headers, impersonate="chrome120", timeout=8, proxies=proxies
         )
         if resp.status_code == 200:
           data = resp.json()
@@ -178,8 +199,8 @@ class KickFollowAutomation:
     proxies = {"http": self.proxy, "https": self.proxy} if self.proxy else None
     for url in endpoints:
       try:
-        response = crequests.post(
-            url, headers=headers, json={}, impersonate="chrome120", timeout=8, proxies=proxies
+        response = safe_request(
+            "POST", url, headers=headers, json={}, impersonate="chrome120", timeout=8, proxies=proxies
         )
         if response.status_code in (200, 201, 204):
           return (
@@ -379,7 +400,8 @@ def bot_worker():
       try:
         proxy_val = config.get("proxy", "").strip()
         proxies = {"http": proxy_val, "https": proxy_val} if proxy_val else None
-        response = crequests.post(
+        response = safe_request(
+            "POST",
             url,
             headers=headers,
             json=payload,
@@ -830,7 +852,7 @@ def test_token():
     try:
         proxy_val = config.get("proxy", "").strip()
         proxies = {"http": proxy_val, "https": proxy_val} if proxy_val else None
-        resp = crequests.get("https://kick.com/api/v1/user", headers=headers, impersonate="chrome120", timeout=10, proxies=proxies)
+        resp = safe_request("GET", "https://kick.com/api/v1/user", headers=headers, impersonate="chrome120", timeout=10, proxies=proxies)
         if resp.status_code == 200:
             data = resp.json()
             username = data.get("username", "Bilinmiyor")
