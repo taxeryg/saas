@@ -281,13 +281,18 @@
             }
         }
 
+        let _chatroomFetchTimeout = null;
+
         async function fetchAndFillChatroomId(channelName) {
-            /**
-             * Verilen kanal adı için Kick API'den chatroom ID'yi çeker,
-             * formdaki #chatroom_id alanını otomatik doldurur ve ayarları sessizce kaydeder.
-             * Başarılıysa chatroom_id'yi döndürür, aksi hâlde null döndürür.
-             */
+            if (!channelName) return null;
             const manualChatroomIdInput = document.getElementById('chatroom_id');
+            const statusBar = document.getElementById('chat-status-bar');
+
+            if (statusBar) {
+                statusBar.className = 'chat-status-bar connecting';
+                statusBar.innerText = `⏳ '${channelName}' için Chatroom ID alınıyor...`;
+            }
+
             try {
                 const res = await fetch(`/get-chatroom/${channelName}`);
                 const data = await res.json();
@@ -297,10 +302,23 @@
                     }
                     await saveConfigFormSilently();
                     showToast(`✅ Chatroom ID otomatik alındı: ${data.chatroom_id}`);
+                    if (statusBar) {
+                        statusBar.className = 'chat-status-bar connected';
+                        statusBar.innerText = `✅ Chatroom ID alındı: ${data.chatroom_id} — WebSocket bağlantısı kuruluyor...`;
+                    }
                     return data.chatroom_id;
+                } else {
+                    if (statusBar) {
+                        statusBar.className = 'chat-status-bar error';
+                        statusBar.innerText = `❌ '${channelName}' için Chatroom ID bulunamadı. Manuel olarak girin.`;
+                    }
                 }
             } catch (err) {
                 console.error('Chatroom ID alınamadı:', err);
+                if (statusBar) {
+                    statusBar.className = 'chat-status-bar error';
+                    statusBar.innerText = `❌ Chatroom ID alınırken hata: ${err.message}`;
+                }
             }
             return null;
         }
@@ -464,21 +482,23 @@
 
             const channelInput = document.getElementById('channel');
             if (channelInput) {
-                // 'change' eventi (focus kaybettiğinde) yeni kanal için chatroom ID'yi çekip doldurur
-                channelInput.addEventListener('change', function() {
+                // Kanal adı değiştiğinde: eski chatroom ID'yi temizle, 600ms bekle, yeni ID'yi çek
+                channelInput.addEventListener('input', function() {
                     const chatroomIdInput = document.getElementById('chatroom_id');
-                    if (chatroomIdInput) {
-                        chatroomIdInput.value = ''; // Eski ID'yi sıfırla
-                    }
-                    connectToLiveChat();
-                });
-                // 'blur' eventi de tetikle (input alanından çıkınca)
-                channelInput.addEventListener('blur', function() {
-                    const chatroomIdInput = document.getElementById('chatroom_id');
+                    if (chatroomIdInput) chatroomIdInput.value = '';
+                    currentChatroomId = null;
+
+                    clearTimeout(_chatroomFetchTimeout);
                     const newChannel = this.value.trim().toLowerCase();
-                    if (chatroomIdInput && !chatroomIdInput.value.trim() && newChannel) {
-                        fetchAndFillChatroomId(newChannel);
-                    }
+                    if (newChannel.length < 2) return;
+
+                    _chatroomFetchTimeout = setTimeout(async () => {
+                        const id = await fetchAndFillChatroomId(newChannel);
+                        if (id) {
+                            currentChatroomId = id;
+                            startPusherWebSocket(id, newChannel);
+                        }
+                    }, 700);
                 });
             }
 
