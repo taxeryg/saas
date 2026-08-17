@@ -463,7 +463,17 @@
 
             const refreshBtn = document.getElementById('refresh-chat-btn');
             if (refreshBtn) {
-                refreshBtn.addEventListener('click', connectToLiveChat);
+                refreshBtn.addEventListener('click', async function() {
+                    const channelInput = document.getElementById('channel');
+                    const channelName = channelInput ? channelInput.value.trim().toLowerCase() : '';
+                    if (channelName) {
+                        const id = await fetchAndFillChatroomId(channelName);
+                        if (id) {
+                            currentChatroomId = id;
+                            startPusherWebSocket(id, channelName);
+                        }
+                    }
+                });
             }
 
             const clearBtn = document.getElementById('clear-live-chat-btn');
@@ -538,17 +548,10 @@
             const chatroomIdInput = document.getElementById('chatroom_id');
             const channelName = channelInput ? channelInput.value.trim().toLowerCase() : '';
 
-            // Chatroom ID boşsa, kaydetmeden önce otomatik çek
-            if (chatroomIdInput && !chatroomIdInput.value.trim() && channelName) {
-                const statusBar = document.getElementById('chat-status-bar');
-                if (statusBar) {
-                    statusBar.className = 'chat-status-bar connecting';
-                    statusBar.innerText = `⏳ '${channelName}' için chatroom ID alınıyor...`;
-                }
+            // Kanal adı girilmişse her zaman chatroom ID'yi taze çek
+            if (channelName) {
                 const fetchedId = await fetchAndFillChatroomId(channelName);
-                if (fetchedId) {
-                    currentChatroomId = fetchedId;
-                }
+                if (fetchedId) currentChatroomId = fetchedId;
             }
 
             const formData = new FormData(this);
@@ -559,9 +562,8 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    alert('Ayarlar başarıyla güncellendi!');
-                    // Bağlantıyı yenile
-                    connectToLiveChat();
+                    showToast('✅ Ayarlar başarıyla kaydedildi!');
+                    if (currentChatroomId) connectToLiveChat();
                 } else if (data.message) {
                     alert('Hata: ' + data.message);
                 }
