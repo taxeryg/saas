@@ -54,16 +54,15 @@
                 <!-- SOL PANEL: BOT AYARLARI VE KONTROLLERİ -->
                 <div class="bot-left-panel">
                     <form id="config-form">
-                        <label for="channel">Hedef Kick Kanal Adı / Kullanıcı Adı:</label>
-                        <input type="text" id="channel" name="channel" value="{{ config['channel'] }}"
-                            placeholder="Örn: sefoge" required>
-
-                        <label for="chatroom_id">Sohbet Odası ID'si (Chatroom ID) - [Manuel Giriş]:</label>
+                        <label for="chatroom_id">🎯 Sohbet Odası ID'si (Chatroom ID):</label>
                         <input type="text" id="chatroom_id" name="chatroom_id" value="{{ config.get('chatroom_id', '') }}"
-                            placeholder="Örn: 24785190 (Chate bağlanılamadı hatası alırsanız doldurun)">
+                            placeholder="Örn: 24785190" required>
                         <small style="color: #bbb; display: block; margin-top: -8px; margin-bottom: 12px; font-size: 11px;">
-                            💡 Canlı sunucularda Cloudflare engeli nedeniyle chatroom ID otomatik alınamayabilir. Tarayıcınızdan <code>https://kick.com/api/v2/channels/{kanal_adı}</code> adresine gidip, <code>chatroom -> id</code> değerini kopyalayarak buraya yapıştırabilirsiniz.
+                            💡 Tarayıcınızdan <code>https://kick.com/api/v2/channels/{kanal_adı}</code> adresine gidip, <code>chatroom → id</code> değerini kopyalayarak buraya yapıştırın.
                         </small>
+
+                        <!-- Kanal adı gizli tutulur, chatroom_id'den türetilir -->
+                        <input type="hidden" id="channel" name="channel" value="{{ config.get('channel', 'kick') }}">
 
                         <label for="proxy">HTTP Proxy (Opsiyonel):</label>
                         <input type="text" id="proxy" name="proxy" value="{{ config.get('proxy', '') }}"
@@ -81,7 +80,7 @@
                         <label for="delay">Gecikme Süresi (Saniye):</label>
                         <input type="number" id="delay" name="delay" step="0.5" min="1" value="{{ config['delay'] }}">
 
-                        <button type="submit">Ayarları Kaydet</button>
+                        <button type="submit">💾 Ayarları Kaydet</button>
                     </form>
 
                     <div class="button-group">
@@ -324,44 +323,24 @@
         }
 
         async function connectToLiveChat() {
-            const channelInput = document.getElementById('channel');
-            const channelName = channelInput ? channelInput.value.trim().toLowerCase() : '';
+            const chatroomIdInput = document.getElementById('chatroom_id');
             const statusBar = document.getElementById('chat-status-bar');
             const displayEl = document.getElementById('chat-channel-display');
 
-            if (!channelName) return;
-            if (displayEl) displayEl.innerText = channelName;
+            const chatroomId = chatroomIdInput ? chatroomIdInput.value.trim() : '';
 
-            if (statusBar) {
-                statusBar.className = 'chat-status-bar connecting';
-                statusBar.innerText = `⏳ '${channelName}' sohbet odası bilgileri alınıyor...`;
-            }
-
-            try {
-                const manualChatroomIdInput = document.getElementById('chatroom_id');
-                let chatroomId = manualChatroomIdInput ? manualChatroomIdInput.value.trim() : '';
-
-                // Chatroom ID yoksa otomatik çek
-                if (!chatroomId) {
-                    chatroomId = await fetchAndFillChatroomId(channelName);
-                }
-
-                if (!chatroomId) {
-                    if (statusBar) {
-                        statusBar.className = 'chat-status-bar error';
-                        statusBar.innerText = `❌ '${channelName}' kanalı için chatroom ID bulunamadı! (Manuel Chatroom ID girmeyi deneyin)`;
-                    }
-                    return;
-                }
-
-                currentChatroomId = chatroomId;
-                startPusherWebSocket(currentChatroomId, channelName);
-            } catch (err) {
+            if (!chatroomId) {
                 if (statusBar) {
                     statusBar.className = 'chat-status-bar error';
-                    statusBar.innerText = `❌ Bağlantı hatası: ${err.message}`;
+                    statusBar.innerText = '❌ Chatroom ID girilmemiş! Lütfen Chatroom ID alanını doldurun.';
                 }
+                return;
             }
+
+            if (displayEl) displayEl.innerText = `Chatroom #${chatroomId}`;
+
+            currentChatroomId = chatroomId;
+            startPusherWebSocket(chatroomId, `Chatroom #${chatroomId}`);
         }
 
         function startPusherWebSocket(chatroomId, channelName) {
@@ -463,52 +442,18 @@
 
             const refreshBtn = document.getElementById('refresh-chat-btn');
             if (refreshBtn) {
-                refreshBtn.addEventListener('click', async function() {
-                    const channelInput = document.getElementById('channel');
-                    const channelName = channelInput ? channelInput.value.trim().toLowerCase() : '';
-                    if (channelName) {
-                        const id = await fetchAndFillChatroomId(channelName);
-                        if (id) {
-                            currentChatroomId = id;
-                            startPusherWebSocket(id, channelName);
-                        }
-                    }
-                });
+                refreshBtn.addEventListener('click', connectToLiveChat);
             }
 
-            const clearBtn = document.getElementById('clear-live-chat-btn');
-            if (clearBtn) {
-                clearBtn.addEventListener('click', function() {
-                    const chatBox = document.getElementById('live-chat-box');
-                    if (chatBox) {
-                        chatBox.innerHTML = `
-                            <div class="chat-welcome-tip">
-                                💡 Chat temizlendi. Canlı mesajlar bekleniyor...
-                            </div>
-                        `;
+            // Chatroom ID inputuna girilince anlık bağlantı kur
+            const chatroomIdInput = document.getElementById('chatroom_id');
+            if (chatroomIdInput) {
+                chatroomIdInput.addEventListener('change', function() {
+                    const id = this.value.trim();
+                    if (id) {
+                        currentChatroomId = id;
+                        startPusherWebSocket(id, `Chatroom #${id}`);
                     }
-                });
-            }
-
-            const channelInput = document.getElementById('channel');
-            if (channelInput) {
-                // Kanal adı değiştiğinde: eski chatroom ID'yi temizle, 600ms bekle, yeni ID'yi çek
-                channelInput.addEventListener('input', function() {
-                    const chatroomIdInput = document.getElementById('chatroom_id');
-                    if (chatroomIdInput) chatroomIdInput.value = '';
-                    currentChatroomId = null;
-
-                    clearTimeout(_chatroomFetchTimeout);
-                    const newChannel = this.value.trim().toLowerCase();
-                    if (newChannel.length < 2) return;
-
-                    _chatroomFetchTimeout = setTimeout(async () => {
-                        const id = await fetchAndFillChatroomId(newChannel);
-                        if (id) {
-                            currentChatroomId = id;
-                            startPusherWebSocket(id, newChannel);
-                        }
-                    }, 700);
                 });
             }
 
@@ -544,16 +489,6 @@
         // ==================
         document.getElementById('config-form').addEventListener('submit', async function (e) {
             e.preventDefault();
-            const channelInput = document.getElementById('channel');
-            const chatroomIdInput = document.getElementById('chatroom_id');
-            const channelName = channelInput ? channelInput.value.trim().toLowerCase() : '';
-
-            // Kanal adı girilmişse her zaman chatroom ID'yi taze çek
-            if (channelName) {
-                const fetchedId = await fetchAndFillChatroomId(channelName);
-                if (fetchedId) currentChatroomId = fetchedId;
-            }
-
             const formData = new FormData(this);
             try {
                 const res = await fetch('/update', {
@@ -563,7 +498,13 @@
                 const data = await res.json();
                 if (data.success) {
                     showToast('✅ Ayarlar başarıyla kaydedildi!');
-                    if (currentChatroomId) connectToLiveChat();
+                    // Chatroom ID varsa bağlantıyı (yeniden) kur
+                    const chatroomIdInput = document.getElementById('chatroom_id');
+                    const id = chatroomIdInput ? chatroomIdInput.value.trim() : '';
+                    if (id) {
+                        currentChatroomId = id;
+                        startPusherWebSocket(id, `Chatroom #${id}`);
+                    }
                 } else if (data.message) {
                     alert('Hata: ' + data.message);
                 }

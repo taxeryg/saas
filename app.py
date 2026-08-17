@@ -301,50 +301,29 @@ def bot_worker():
       is_running = False
       break
 
-    target_channel = config.get("channel", "sefoge").strip().lower()
-    if not target_channel:
-      bot_logs.insert(0, "[HATA] Hedef kanal adı boş! Bot durduruldu.")
+    target_chatroom_id = config.get("chatroom_id", "").strip()
+    target_channel = config.get("channel", "kick").strip().lower() or "kick"
+
+    if not target_chatroom_id:
+      bot_logs.insert(0, "[HATA] Chatroom ID boş! Ayarlardan Chatroom ID girin.")
       is_running = False
       break
 
-    # Kanal değiştiyse veya chatroom_id eksikse kanal bilgilerini çek
-    if current_channel != target_channel or not channel_info.get("chatroom_id"):
+    # Chatroom ID değiştiyse channel_info'yu güncelle
+    if channel_info.get("chatroom_id") != target_chatroom_id:
       current_channel = target_channel
-      config_chatroom_id = config.get("chatroom_id", "").strip()
-      
-      if config_chatroom_id:
-        channel_info = {
-            "slug": current_channel,
-            "chatroom_id": config_chatroom_id,
-            "channel_id": None,
-            "user_id": None,
-        }
-        bot_logs.insert(
-            0,
-            f"[SİSTEM] '{current_channel}' için manuel Chatroom ID kullanılıyor: {config_chatroom_id}",
-        )
-      else:
-        helper = KickFollowAutomation(
-            config["tokens"][0] if config.get("tokens") else None,
-            proxy=config.get("proxy")
-        )
-        info = helper.get_channel_info(current_channel)
-
-        if info["success"] and info["chatroom_id"]:
-          channel_info = info
-          bot_logs.insert(
-              0,
-              f"[SİSTEM] '{current_channel}' kanal bilgileri alındı (User ID:"
-              f" {info['user_id']}, Chatroom ID: {info['chatroom_id']})",
-          )
-        else:
-          channel_info = {
-              "slug": current_channel,
-              "chatroom_id": None,
-              "channel_id": None,
-              "user_id": None,
-          }
-          bot_logs.insert(0, f"[HATA] '{current_channel}' kanal bilgileri alınamadı! (Lütfen manuel Chatroom ID girmeyi deneyin)")
+      channel_info = {
+          "slug": target_channel,
+          "chatroom_id": target_chatroom_id,
+          "channel_id": None,
+          "user_id": None,
+      }
+      bot_logs.insert(
+          0,
+          f"[SİSTEM] Chatroom ID: {target_chatroom_id} | Kanal: {target_channel}",
+      )
+    else:
+      current_channel = target_channel
 
     # === TUR BAZLI SİSTEM ===
     # Toplam pencere süresi = girilen delay * 10
@@ -656,14 +635,14 @@ def logout():
 @login_required
 def update_config():
   global config
-  channel_raw = request.form.get("channel", "sefoge")
+  channel_raw = request.form.get("channel", "").strip().lower() or config.get("channel", "kick")
   chatroom_id_raw = request.form.get("chatroom_id", "")
   proxy_raw = request.form.get("proxy", "")
   tokens_raw = request.form.get("tokens", "")
   messages_raw = request.form.get("messages", "")
   delay_raw = request.form.get("delay", "4")
 
-  config["channel"] = channel_raw.strip().lower()
+  config["channel"] = channel_raw
   config["chatroom_id"] = chatroom_id_raw.strip()
   config["proxy"] = proxy_raw.strip()
   config["tokens"] = [t.strip() for t in tokens_raw.split("\n") if t.strip()]
