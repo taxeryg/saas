@@ -423,35 +423,8 @@ def bot_worker():
 @app.route("/")
 def index():
   if session.get("logged_in"):
-    if session.get("is_admin"):
-      return render_template("index.html", config=config)
-    
-    username = session.get("username")
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    cursor.execute("SELECT points FROM users WHERE username = ?", (username,))
-    row = cursor.fetchone()
-    points = row[0] if row else 0
-    conn.close()
-    return render_template("games.html", points=points, logged_in=True, username=username)
-
-  trigger = request.args.get("trigger", "")
-  return render_template("games.html", trigger=trigger, logged_in=False, username="")
-
-
-@app.route("/gate")
-def gate():
-  if session.get("logged_in") and session.get("is_admin"):
-    return redirect(url_for("index"))
-  return redirect(url_for("index", trigger="admin_auth"))
-
-
-@app.route("/arcade")
-def arcade():
-  """Admin panelinden Arcade portalına dönerken admin oturumunu arcade moduna alır."""
-  if session.get("logged_in") and session.get("is_admin"):
-    session["is_admin"] = False
-  return redirect(url_for("index"))
+    return render_template("index.html", config=config)
+  return redirect(url_for("login"))
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -459,7 +432,7 @@ def login():
   if request.method == "GET":
     if session.get("logged_in"):
       return redirect(url_for("index"))
-    return redirect(url_for("gate"))
+    return render_template("login.html")
   
   if request.is_json:
     data = request.get_json() or {}
@@ -470,7 +443,9 @@ def login():
     password = request.form.get("password", "").strip()
 
   if not username or not password:
-    return jsonify({"success": False, "message": "Kullanıcı adı veya şifre boş bırakılamaz!"}), 400
+    if request.is_json:
+      return jsonify({"success": False, "message": "Kullanıcı adı veya şifre boş bırakılamaz!"}), 400
+    return render_template("login.html", error="Kullanıcı adı veya şifre boş bırakılamaz!")
 
   conn = sqlite3.connect(DB_FILE)
   cursor = conn.cursor()
@@ -481,10 +456,14 @@ def login():
   if row and check_password_hash(row[0], password):
     session["logged_in"] = True
     session["username"] = username
-    session["is_admin"] = False
-    return jsonify({"success": True, "message": "Giriş başarılı!"})
+    session["is_admin"] = True
+    if request.is_json:
+      return jsonify({"success": True, "message": "Giriş başarılı!"})
+    return redirect(url_for("index"))
   
-  return jsonify({"success": False, "message": "Kullanıcı adı veya şifre hatalı!"}), 401
+  if request.is_json:
+    return jsonify({"success": False, "message": "Kullanıcı adı veya şifre hatalı!"}), 401
+  return render_template("login.html", error="Kullanıcı adı veya şifre hatalı!")
 
 
 @app.route("/register", methods=["POST"])
@@ -498,10 +477,14 @@ def register():
     password = request.form.get("password", "").strip()
 
   if not username or not password:
-    return jsonify({"success": False, "message": "Kullanıcı adı veya şifre boş bırakılamaz!"}), 400
+    if request.is_json:
+      return jsonify({"success": False, "message": "Kullanıcı adı veya şifre boş bırakılamaz!"}), 400
+    return render_template("login.html", error="Kullanıcı adı veya şifre boş bırakılamaz!")
 
   if len(password) < 6:
-    return jsonify({"success": False, "message": "Şifre en az 6 karakter olmalıdır!"}), 400
+    if request.is_json:
+      return jsonify({"success": False, "message": "Şifre en az 6 karakter olmalıdır!"}), 400
+    return render_template("login.html", error="Şifre en az 6 karakter olmalıdır!")
 
   conn = sqlite3.connect(DB_FILE)
   cursor = conn.cursor()
@@ -509,7 +492,9 @@ def register():
     cursor.execute("SELECT id FROM users WHERE username = ?", (username,))
     if cursor.fetchone():
       conn.close()
-      return jsonify({"success": False, "message": "Bu kullanıcı adı zaten alınmış!"}), 409
+      if request.is_json:
+        return jsonify({"success": False, "message": "Bu kullanıcı adı zaten alınmış!"}), 409
+      return render_template("login.html", error="Bu kullanıcı adı zaten alınmış!")
     
     hashed = generate_password_hash(password)
     cursor.execute("INSERT INTO users (username, password_hash) VALUES (?, ?)", (username, hashed))
@@ -518,111 +503,16 @@ def register():
     
     session["logged_in"] = True
     session["username"] = username
-    session["is_admin"] = False
-    return jsonify({"success": True, "message": "Kayıt başarılı! Giriş yapıldı."})
-  except Exception as e:
-    if conn:
-      conn.close()
-    return jsonify({"success": False, "message": f"Kayıt esnasında bir hata oluştu: {str(e)}"}), 500
-
-
-@app.route("/admin-login", methods=["POST"])
-def admin_login():
-  if request.is_json:
-    data = request.get_json() or {}
-    username = data.get("username", "").strip()
-    password = data.get("password", "").strip()
-  else:
-    username = request.form.get("username", "").strip()
-    password = request.form.get("password", "").strip()
-
-  if not username or not password:
-    return jsonify({"success": False, "message": "Kullanıcı adı veya şifre boş bırakılamaz!"}), 400
-
-  if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
-    session["logged_in"] = True
-    session["username"] = username
     session["is_admin"] = True
-    return jsonify({"success": True, "message": "Yönetici girişi başarılı!"})
-  
-  return jsonify({"success": False, "message": "Yönetici şifresi veya kullanıcı adı hatalı!"}), 401
-
-
-@app.route("/get-banned-users/<channel_name>", methods=["GET"])
-def get_banned_users(channel_name):
-  """Sefoge kanalından banlanan kullanıcıları döndür (mock data şu an)"""
-  try:
-    # TODO: Gerçek Kick banlanan verisi entegre edilebilir
-    # Şu an boş döndür, frontend localStorage'dan gösterecek
-    
-    return jsonify({
-      "success": True,
-      "channel": channel_name,
-      "banned_users": [],
-      "total": 0,
-      "note": "Banlananlar moderasyon panelinde localStorage'da kaydediliyor"
-    })
-      
-  except Exception as e:
-    return jsonify({
-      "success": False,
-      "message": f"Hata: {str(e)}"
-    }), 500
-
-
-@app.route("/update-points", methods=["POST"])
-def update_points():
-  if not session.get("logged_in"):
-    return jsonify({"success": False, "message": "Puan eklemek için giriş yapmalısınız!"}), 401
-
-  if request.is_json:
-    data = request.get_json() or {}
-  else:
-    data = request.form
-
-  try:
-    points_to_add = int(data.get("points", 0))
-  except ValueError:
-    return jsonify({"success": False, "message": "Geçersiz puan değeri!"}), 400
-
-  if points_to_add <= 0:
-    return jsonify({"success": False, "message": "Eklenecek puan sıfırdan büyük olmalıdır!"}), 400
-
-  username = session.get("username")
-  conn = sqlite3.connect(DB_FILE)
-  cursor = conn.cursor()
-  try:
-    cursor.execute("UPDATE users SET points = points + ? WHERE username = ?", (points_to_add, username))
-    conn.commit()
-    
-    cursor.execute("SELECT points FROM users WHERE username = ?", (username,))
-    new_points = cursor.fetchone()[0]
-    conn.close()
-    return jsonify({"success": True, "new_points": new_points})
+    if request.is_json:
+      return jsonify({"success": True, "message": "Kayıt başarılı! Giriş yapıldı."})
+    return redirect(url_for("index"))
   except Exception as e:
     if conn:
       conn.close()
-    return jsonify({"success": False, "message": f"Hata: {str(e)}"}), 500
-
-
-@app.route("/get-youtube-latest/<channel_name>")
-def get_youtube_latest(channel_name):
-  """YouTube kanalından en yeni videoyu al"""
-  try:
-    if channel_name.lower() == 'sefoge':
-      # Sefoge'nin son Shorts videosu
-      return jsonify({
-        "success": True,
-        "video_id": "yIvJtp4VDl4",
-        "title": "Sefoge Yeni Shorts",
-        "url": "https://www.youtube.com/shorts/yIvJtp4VDl4",
-        "embed_url": "https://www.youtube.com/embed/yIvJtp4VDl4"
-      })
-    
-    return jsonify({"success": False, "message": "Channel not supported"}), 400
-      
-  except Exception as e:
-    return jsonify({"success": False, "message": f"Error: {str(e)}"}), 500
+    if request.is_json:
+      return jsonify({"success": False, "message": f"Kayıt esnasında bir hata oluştu: {str(e)}"}), 500
+    return render_template("login.html", error=f"Kayıt esnasında bir hata oluştu: {str(e)}")
 
 
 @app.route("/logout")
