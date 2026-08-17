@@ -85,9 +85,12 @@ def init_db():
 
 init_db()
 
-bot_thread = None
-is_running = False
-bot_logs = []
+# Çoklu Bot global durumları
+bots_state = {
+    "1": {"is_running": False, "thread": None, "logs": []},
+    "2": {"is_running": False, "thread": None, "logs": []},
+    "3": {"is_running": False, "thread": None, "logs": []}
+}
 
 # Hesap oluşturma için global değişkenler
 account_thread = None
@@ -98,22 +101,85 @@ created_accounts = []
 CONFIG_FILE = "config.json"
 
 DEFAULT_CONFIG = {
-    "channel": "sefoge",
-    "chatroom_id": "",
-    "proxy": "",
-    "tokens": [
-        "380813590|MlQJsOlYlAjKrEvnTWkswKdT0WntbptbgUiVUHrD",
-        "409791057|0gKGwsYCKVxI5fZmcJIA1EqWrKfu5Z4LYhtHR581",
-    ],
-    "messages": ["Selam!", "Nasılsınız?", "Harika yayın!", "Merhaba!"],
-    "delay": 4.0,
+    "bots": {
+        "1": {
+            "channel": "sefoge",
+            "chatroom_id": "",
+            "proxy": "",
+            "tokens": [
+                "380813590|MlQJsOlYlAjKrEvnTWkswKdT0WntbptbgUiVUHrD",
+                "409791057|0gKGwsYCKVxI5fZmcJIA1EqWrKfu5Z4LYhtHR581",
+            ],
+            "messages": ["Selam!", "Nasılsınız?", "Harika yayın!", "Merhaba!"],
+            "delay": 4.0,
+        },
+        "2": {
+            "channel": "sefoge",
+            "chatroom_id": "",
+            "proxy": "",
+            "tokens": [],
+            "messages": ["Selam!", "Nasılsınız?", "Harika yayın!", "Merhaba!"],
+            "delay": 4.0,
+        },
+        "3": {
+            "channel": "sefoge",
+            "chatroom_id": "",
+            "proxy": "",
+            "tokens": [],
+            "messages": ["Selam!", "Nasılsınız?", "Harika yayın!", "Merhaba!"],
+            "delay": 4.0,
+        }
+    }
 }
 
 def load_config():
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
+                data = json.load(f)
+                if "bots" in data:
+                    for b_id in ["1", "2", "3"]:
+                        if b_id not in data["bots"]:
+                            data["bots"][b_id] = {
+                                "channel": "sefoge",
+                                "chatroom_id": "",
+                                "proxy": "",
+                                "tokens": [],
+                                "messages": ["Selam!", "Nasılsınız?", "Harika yayın!"],
+                                "delay": 4.0
+                            }
+                    return data
+                else:
+                    migrated = {
+                        "bots": {
+                            "1": {
+                                "channel": data.get("channel", "sefoge"),
+                                "chatroom_id": data.get("chatroom_id", ""),
+                                "proxy": data.get("proxy", ""),
+                                "tokens": data.get("tokens", []),
+                                "messages": data.get("messages", []),
+                                "delay": data.get("delay", 4.0)
+                            },
+                            "2": {
+                                "channel": "sefoge",
+                                "chatroom_id": "",
+                                "proxy": "",
+                                "tokens": [],
+                                "messages": ["Selam!", "Nasılsınız?", "Harika yayın!"],
+                                "delay": 4.0
+                            },
+                            "3": {
+                                "channel": "sefoge",
+                                "chatroom_id": "",
+                                "proxy": "",
+                                "tokens": [],
+                                "messages": ["Selam!", "Nasılsınız?", "Harika yayın!"],
+                                "delay": 4.0
+                            }
+                        }
+                    }
+                    save_config(migrated)
+                    return migrated
         except Exception as e:
             print(f"[HATA] Config yüklenemedi: {e}")
     return DEFAULT_CONFIG.copy()
@@ -256,57 +322,25 @@ def login_required(f):
   return decorated_function
 
 
-def run_follow_automation_for_all(channel_slug, channel_info, tokens):
-  """Bot başlatıldığında tüm tokenlar sırayla yayıncıyı ve kanal ID'sini takip etmeyi dener."""
-  broadcaster_id = channel_info.get("user_id") or channel_info.get("channel_id")
-  bot_logs.insert(
-      0,
-      f"[SİSTEM] Takip otomasyonu çalıştırılıyor... (Hedef: {channel_slug} |"
-      f" User ID: {broadcaster_id})",
-  )
-
-  for token in tokens:
-    if not is_running:
-      break
-    auto_bot = KickFollowAutomation(token)
-
-    # 1. Slug ile takip dene
-    _, log1 = auto_bot.follow_user(channel_slug)
-    bot_logs.insert(0, log1)
-
-    # 2. Broadcaster User ID ile takip dene
-    if broadcaster_id:
-      _, log2 = auto_bot.follow_user(broadcaster_id)
-      bot_logs.insert(0, log2)
-
-    if len(bot_logs) > 50:
-      bot_logs.pop()
-    time.sleep(0.5)
-
-  bot_logs.insert(
-      0, "[SİSTEM] Takip işlemleri tamamlandı. Sohbet botu aktifleştirildi."
-  )
-
-
-def bot_worker():
-  global is_running
+def bot_worker(bot_id):
   current_channel = None
   channel_info = {}
 
-  while is_running:
-    if not config["tokens"] or not config["messages"]:
-      bot_logs.insert(
+  while bots_state[bot_id]["is_running"]:
+    bot_cfg = config["bots"][bot_id]
+    if not bot_cfg.get("tokens") or not bot_cfg.get("messages"):
+      bots_state[bot_id]["logs"].insert(
           0, "[HATA] Token veya mesaj listesi boş! Bot durduruldu."
       )
-      is_running = False
+      bots_state[bot_id]["is_running"] = False
       break
 
-    target_chatroom_id = config.get("chatroom_id", "").strip()
-    target_channel = config.get("channel", "kick").strip().lower() or "kick"
+    target_chatroom_id = bot_cfg.get("chatroom_id", "").strip()
+    target_channel = bot_cfg.get("channel", "kick").strip().lower() or "kick"
 
     if not target_chatroom_id:
-      bot_logs.insert(0, "[HATA] Chatroom ID boş! Ayarlardan Chatroom ID girin.")
-      is_running = False
+      bots_state[bot_id]["logs"].insert(0, "[HATA] Chatroom ID boş! Ayarlardan Chatroom ID girin.")
+      bots_state[bot_id]["is_running"] = False
       break
 
     # Chatroom ID değiştiyse channel_info'yu güncelle
@@ -318,7 +352,7 @@ def bot_worker():
           "channel_id": None,
           "user_id": None,
       }
-      bot_logs.insert(
+      bots_state[bot_id]["logs"].insert(
           0,
           f"[SİSTEM] Chatroom ID: {target_chatroom_id} | Kanal: {target_channel}",
       )
@@ -326,10 +360,8 @@ def bot_worker():
       current_channel = target_channel
 
     # === TUR BAZLI SİSTEM ===
-    # Toplam pencere süresi = girilen delay * 10
-    # Bu süre içinde tüm hesaplar 1'er kez mesaj atacak
-    active_tokens = list(config["tokens"])
-    delay_sec = float(config["delay"])
+    active_tokens = list(bot_cfg["tokens"])
+    delay_sec = float(bot_cfg["delay"])
     window_sec = delay_sec * 10  # Toplam pencere süresi
     token_count = len(active_tokens)
 
@@ -339,25 +371,22 @@ def bot_worker():
 
     # Tokenları karıştır (rastgele sıra)
     random.shuffle(active_tokens)
-
-    # Her token arasındaki ortalama bekleme süresini hesapla
-    # Pencereyi token sayısına böl, ama ufak rastgelelik ekle
     avg_gap = window_sec / token_count
 
-    bot_logs.insert(
+    bots_state[bot_id]["logs"].insert(
         0,
         f"[SİSTEM] Yeni tur başladı: {token_count} hesap, {window_sec:.0f}sn pencere"
     )
 
     for i, selected_token in enumerate(active_tokens):
-      if not is_running:
+      if not bots_state[bot_id]["is_running"]:
         break
 
-      selected_message = random.choice(config["messages"])
+      selected_message = random.choice(bot_cfg["messages"])
       chatroom_id = channel_info.get("chatroom_id")
 
       if not chatroom_id:
-        bot_logs.insert(0, f"[HATA] [{current_channel}] Chatroom ID bulunamadı!")
+        bots_state[bot_id]["logs"].insert(0, f"[HATA] [{current_channel}] Chatroom ID bulunamadı!")
         time.sleep(2)
         break
 
@@ -383,7 +412,7 @@ def bot_worker():
       }
 
       try:
-        proxy_val = config.get("proxy", "").strip()
+        proxy_val = bot_cfg.get("proxy", "").strip()
         proxies = {"http": proxy_val, "https": proxy_val} if proxy_val else None
         response = safe_request(
             "POST",
@@ -407,12 +436,12 @@ def bot_worker():
       except Exception as e:
         log_msg = f"[BAĞLANTI HATASI] {str(e)}"
 
-      bot_logs.insert(0, log_msg)
-      if len(bot_logs) > 50:
-        bot_logs.pop()
+      bots_state[bot_id]["logs"].insert(0, log_msg)
+      if len(bots_state[bot_id]["logs"]) > 50:
+        bots_state[bot_id]["logs"].pop()
 
       # Son token değilse, sonraki mesaja kadar rastgele bekle
-      if i < token_count - 1 and is_running:
+      if i < token_count - 1 and bots_state[bot_id]["is_running"]:
         # avg_gap etrafında %50 sapma ile rastgele bekleme
         wait = random.uniform(avg_gap * 0.5, avg_gap * 1.5)
         # Çok kısa olmasın, minimum 2 saniye
@@ -521,28 +550,32 @@ def logout():
   return redirect(url_for("index"))
 
 
-@app.route("/update", methods=["POST"])
+@app.route("/update/<bot_id>", methods=["POST"])
 @login_required
-def update_config():
+def update_config(bot_id):
   global config
-  channel_raw = request.form.get("channel", "").strip().lower() or config.get("channel", "kick")
+  if bot_id not in config["bots"]:
+    return jsonify({"success": False, "message": "Geçersiz Bot ID!"}), 400
+
+  channel_raw = request.form.get("channel", "").strip().lower() or config["bots"][bot_id].get("channel", "kick")
   chatroom_id_raw = request.form.get("chatroom_id", "")
   proxy_raw = request.form.get("proxy", "")
   tokens_raw = request.form.get("tokens", "")
   messages_raw = request.form.get("messages", "")
   delay_raw = request.form.get("delay", "4")
 
-  config["channel"] = channel_raw
-  config["chatroom_id"] = chatroom_id_raw.strip()
-  config["proxy"] = proxy_raw.strip()
-  config["tokens"] = [t.strip() for t in tokens_raw.split("\n") if t.strip()]
-  config["messages"] = [
+  bot_cfg = config["bots"][bot_id]
+  bot_cfg["channel"] = channel_raw
+  bot_cfg["chatroom_id"] = chatroom_id_raw.strip()
+  bot_cfg["proxy"] = proxy_raw.strip()
+  bot_cfg["tokens"] = [t.strip() for t in tokens_raw.split("\n") if t.strip()]
+  bot_cfg["messages"] = [
       m.strip() for m in messages_raw.split("\n") if m.strip()
   ]
   try:
-    config["delay"] = float(delay_raw)
+    bot_cfg["delay"] = float(delay_raw)
   except ValueError:
-    config["delay"] = 4.0
+    bot_cfg["delay"] = 4.0
 
   save_config(config)
 
@@ -551,50 +584,62 @@ def update_config():
 
 @app.route("/get-chatroom/<channel_slug>")
 def get_chatroom(channel_slug):
-    if config.get("channel", "").strip().lower() == channel_slug.strip().lower() and config.get("chatroom_id"):
+    bot_id = request.args.get("bot_id", "1")
+    bot_cfg = config["bots"].get(bot_id, config["bots"]["1"])
+    
+    if bot_cfg.get("channel", "").strip().lower() == channel_slug.strip().lower() and bot_cfg.get("chatroom_id"):
         return jsonify({
             "success": True,
-            "chatroom_id": config.get("chatroom_id"),
+            "chatroom_id": bot_cfg.get("chatroom_id"),
             "slug": channel_slug
         })
 
-    token = config["tokens"][0] if config.get("tokens") else ""
-    helper = KickFollowAutomation(token, proxy=config.get("proxy"))
+    token = bot_cfg["tokens"][0] if bot_cfg.get("tokens") else ""
+    helper = KickFollowAutomation(token, proxy=bot_cfg.get("proxy"))
     info = helper.get_channel_info(channel_slug.strip().lower())
     return jsonify(info)
 
 
-@app.route("/start", methods=["POST"])
+@app.route("/start/<bot_id>", methods=["POST"])
 @login_required
-def start_bot():
-  global bot_thread, is_running
-  if not is_running:
-    is_running = True
-    bot_thread = threading.Thread(target=bot_worker, daemon=True)
-    bot_thread.start()
+def start_bot(bot_id):
+  if bot_id not in bots_state:
+    return jsonify({"message": "Geçersiz Bot ID!"}), 400
+    
+  state = bots_state[bot_id]
+  if not state["is_running"]:
+    state["is_running"] = True
+    state["thread"] = threading.Thread(target=bot_worker, args=(bot_id,), daemon=True)
+    state["thread"].start()
+    bot_cfg = config["bots"][bot_id]
     return jsonify({
         "message": (
-            f"Bot '{config.get('channel', 'sefoge')}' kanalı için başlatıldı!"
+            f"Bot #{bot_id} '{bot_cfg.get('channel', 'sefoge')}' kanalı için başlatıldı!"
         )
     })
-  return jsonify({"message": "Bot zaten çalışıyor!"})
+  return jsonify({"message": f"Bot #{bot_id} zaten çalışıyor!"})
 
 
-@app.route("/stop", methods=["POST"])
+@app.route("/stop/<bot_id>", methods=["POST"])
 @login_required
-def stop_bot():
-  global is_running
-  is_running = False
-  return jsonify({"message": "Bot durduruldu!"})
+def stop_bot(bot_id):
+  if bot_id not in bots_state:
+    return jsonify({"message": "Geçersiz Bot ID!"}), 400
+  bots_state[bot_id]["is_running"] = False
+  return jsonify({"message": f"Bot #{bot_id} durduruldu!"})
 
 
-@app.route("/logs")
+@app.route("/logs/<bot_id>")
 @login_required
-def get_logs():
+def get_logs(bot_id):
+  if bot_id not in bots_state:
+    return jsonify({"message": "Geçersiz Bot ID!"}), 400
+  
+  bot_cfg = config["bots"][bot_id]
   return jsonify({
-      "running": is_running,
-      "channel": config.get("channel", ""),
-      "logs": bot_logs,
+      "running": bots_state[bot_id]["is_running"],
+      "channel": bot_cfg.get("channel", ""),
+      "logs": bots_state[bot_id]["logs"],
   })
 
 
@@ -602,7 +647,7 @@ def get_logs():
 # HESAP OLUŞTURMA FONKSİYONLARI
 # =============================================
 
-def account_worker(count, delay):
+def account_worker(count, delay, target_bot):
   """Arka planda hesap oluşturma işlemi."""
   global is_creating_accounts, created_accounts
 
@@ -619,16 +664,31 @@ def account_worker(count, delay):
       break
 
     log_cb(f"\n[SİSTEM] ── Hesap {i + 1}/{count} ──")
-    creator = KickAccountCreator(log_callback=log_cb, proxy=config.get("proxy"))
+    
+    proxy_val = ""
+    if target_bot in config["bots"]:
+      proxy_val = config["bots"][target_bot].get("proxy", "")
+    elif config["bots"].get("1"):
+      proxy_val = config["bots"]["1"].get("proxy", "")
+
+    creator = KickAccountCreator(log_callback=log_cb, proxy=proxy_val)
     result = creator.create_account()
 
     if result.get("success"):
       created_accounts.append(result)
-      # Başarılı hesabın tokenını otomatik olarak config'e ekle
       if result.get("token"):
-        config["tokens"].append(result["token"])
-        save_config(config)
-        log_cb(f"[SİSTEM] ✅ Token otomatik olarak bot token listesine eklendi ve kaydedildi!")
+        added_bots = []
+        if target_bot == "all":
+          for b_id in config["bots"]:
+            config["bots"][b_id]["tokens"].append(result["token"])
+            added_bots.append(f"Bot #{b_id}")
+        elif target_bot in config["bots"]:
+          config["bots"][target_bot]["tokens"].append(result["token"])
+          added_bots.append(f"Bot #{target_bot}")
+        
+        if added_bots:
+          save_config(config)
+          log_cb(f"[SİSTEM] ✅ Token otomatik olarak {', '.join(added_bots)} listesine eklendi ve kaydedildi!")
 
     if i < count - 1 and is_creating_accounts:
       log_cb(f"[SİSTEM] Sonraki hesap için {delay} saniye bekleniyor...")
@@ -652,6 +712,7 @@ def create_account():
 
   count = int(request.form.get("account_count", 1))
   delay = int(request.form.get("account_delay", 10))
+  target_bot = request.form.get("target_bot", "1")
 
   if count < 1:
     count = 1
@@ -660,7 +721,7 @@ def create_account():
 
   is_creating_accounts = True
   account_thread = threading.Thread(
-      target=account_worker, args=(count, delay), daemon=True
+      target=account_worker, args=(count, delay, target_bot), daemon=True
   )
   account_thread.start()
 
@@ -712,6 +773,7 @@ def clear_account_logs():
 def test_token():
     """Gönderilen token'ın Kick.com'da geçerli olup olmadığını kontrol eder."""
     token = request.json.get("token", "").strip()
+    bot_id = request.json.get("bot_id", "1")
     if not token:
         return jsonify({"valid": False, "message": "Token boş"})
     
@@ -725,7 +787,9 @@ def test_token():
     }
     
     try:
-        proxy_val = config.get("proxy", "").strip()
+        proxy_val = ""
+        if "bots" in config and bot_id in config["bots"]:
+            proxy_val = config["bots"][bot_id].get("proxy", "").strip()
         proxies = {"http": proxy_val, "https": proxy_val} if proxy_val else None
         resp = safe_request("GET", "https://kick.com/api/v1/user", headers=headers, impersonate="chrome120", timeout=10, proxies=proxies)
         if resp.status_code == 200:

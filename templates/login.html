@@ -63,33 +63,19 @@
     </style>
 </head>
 <body>
-    <!-- muted kaldırıldı, sesli oynatma için -->
-    <video autoplay loop playsinline id="bg-video">
+    <video autoplay loop muted playsinline id="bg-video">
         <source src="{{ url_for('static', filename='kartel.mp4') }}" type="video/mp4">
     </video>
 
-    <!-- Mute/Unmute Button -->
-    <div class="mute-btn" id="mute-toggle" title="Sesi Kapat/Aç">🔊</div>
+    <!-- Mute/Unmute Button (Başlangıçta kapalı simgesi) -->
+    <div class="mute-btn" id="mute-toggle" title="Sesi Aç/Kapat">🔇</div>
 
     <script>
         const video = document.getElementById('bg-video');
         const muteToggle = document.getElementById('mute-toggle');
 
-        // İlk tıklamada tarayıcı engelini aşmak için sesi aç
-        window.addEventListener('click', (e) => {
-            // Eğer mute butonuna tıklanmadıysa ilk tıkla sesi aç
-            if (e.target !== muteToggle) {
-                if (video.muted) {
-                    video.muted = false;
-                    video.play().catch(e => console.log("Oynatma hatası:", e));
-                    muteToggle.innerText = "🔊";
-                }
-            }
-        }, { once: true });
-
         // Mute butonuna basınca sesi aç/kapa
         muteToggle.addEventListener('click', (e) => {
-            e.stopPropagation(); // window click tetiklenmesin diye
             if (video.muted) {
                 video.muted = false;
                 muteToggle.innerText = "🔊";

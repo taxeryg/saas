@@ -32,35 +32,42 @@
 
         <!-- SOHBET BOTU SEKMESI -->
         <div id="bot-tab" class="tab-content active">
+            <!-- BOT SEÇİCİ -->
+            <div class="bot-selector-bar" style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <button type="button" class="bot-select-btn active" data-bot="1" style="flex: 1; padding: 12px; border-radius: 8px; font-weight: bold; background: rgba(187,134,252,0.2); border: 2px solid #bb86fc; color: #bb86fc; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; gap: 6px;">🤖 Bot #1 <span id="status-badge-1" style="font-weight:900;">(🛑)</span></button>
+                <button type="button" class="bot-select-btn" data-bot="2" style="flex: 1; padding: 12px; border-radius: 8px; font-weight: bold; background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.1); color: #ccc; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; gap: 6px;">🤖 Bot #2 <span id="status-badge-2" style="font-weight:900;">(🛑)</span></button>
+                <button type="button" class="bot-select-btn" data-bot="3" style="flex: 1; padding: 12px; border-radius: 8px; font-weight: bold; background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.1); color: #ccc; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; gap: 6px;">🤖 Bot #3 <span id="status-badge-3" style="font-weight:900;">(🛑)</span></button>
+            </div>
+
             <div class="bot-grid-layout">
                 <!-- SOL PANEL: BOT AYARLARI VE KONTROLLERİ -->
                 <div class="bot-left-panel">
                     <form id="config-form">
                         <label for="chatroom_id">🎯 Sohbet Odası ID'si (Chatroom ID):</label>
-                        <input type="text" id="chatroom_id" name="chatroom_id" value="{{ config.get('chatroom_id', '') }}"
+                        <input type="text" id="chatroom_id" name="chatroom_id" value="{{ config.get('bots', {}).get('1', {}).get('chatroom_id', '') }}"
                             placeholder="Örn: 24785190" required>
                         <small style="color: #bbb; display: block; margin-top: -8px; margin-bottom: 12px; font-size: 11px;">
                             💡 Tarayıcınızdan <code>https://kick.com/api/v2/channels/{kanal_adı}</code> adresine gidip, <code>chatroom → id</code> değerini kopyalayarak buraya yapıştırın.
                         </small>
 
                         <!-- Kanal adı gizli tutulur, chatroom_id'den türetilir -->
-                        <input type="hidden" id="channel" name="channel" value="{{ config.get('channel', 'kick') }}">
+                        <input type="hidden" id="channel" name="channel" value="{{ config.get('bots', {}).get('1', {}).get('channel', 'kick') }}">
 
                         <label for="proxy">HTTP Proxy (Opsiyonel):</label>
-                        <input type="text" id="proxy" name="proxy" value="{{ config.get('proxy', '') }}"
+                        <input type="text" id="proxy" name="proxy" value="{{ config.get('bots', {}).get('1', {}).get('proxy', '') }}"
                             placeholder="Örn: http://kullanici:sifre@ip:port">
                         <small style="color: #bbb; display: block; margin-top: -8px; margin-bottom: 12px; font-size: 11px;">
                             💡 Cloudflare engelini aşmak için residential (konut) proxy kullanabilirsiniz.
                         </small>
 
                         <label for="tokens">Bearer Tokenlar (Her satıra bir token):</label>
-                        <textarea id="tokens" name="tokens" rows="4">{{ '\n'.join(config['tokens']) }}</textarea>
+                        <textarea id="tokens" name="tokens" rows="4">{{ '\n'.join(config.get('bots', {}).get('1', {}).get('tokens', [])) }}</textarea>
 
                         <label for="messages">Mesajlar (Her satıra bir mesaj):</label>
-                        <textarea id="messages" name="messages" rows="5">{{ '\n'.join(config['messages']) }}</textarea>
+                        <textarea id="messages" name="messages" rows="5">{{ '\n'.join(config.get('bots', {}).get('1', {}).get('messages', [])) }}</textarea>
 
                         <label for="delay">Gecikme Süresi (Saniye):</label>
-                        <input type="number" id="delay" name="delay" step="0.5" min="1" value="{{ config['delay'] }}">
+                        <input type="number" id="delay" name="delay" step="0.5" min="1" value="{{ config.get('bots', {}).get('1', {}).get('delay', 4.0) }}">
 
                         <button type="submit">💾 Ayarları Kaydet</button>
                     </form>
@@ -80,7 +87,7 @@
                 <div class="bot-right-panel">
                     <div class="live-chat-card">
                         <div class="live-chat-header">
-                            <h3>⚡ Yayıncı Canlı Chat Stream (<span id="chat-channel-display" class="highlight-channel">{{ config['channel'] }}</span>)</h3>
+                            <h3>⚡ Yayıncı Canlı Chat Stream (<span id="chat-channel-display" class="highlight-channel">{{ config.get('bots', {}).get('1', {}).get('channel', 'kick') }}</span>)</h3>
                             <div class="chat-header-actions">
                                 <button type="button" id="clear-live-chat-btn" class="small-btn">🗑 Temizle</button>
                                 <button type="button" id="refresh-chat-btn" class="small-btn">🔄 Bağlan</button>
@@ -139,8 +146,20 @@
                             <input type="number" id="account_delay" min="5" max="120" value="10">
                         </div>
                     </div>
+                    <div class="form-row" style="margin-top: 10px;">
+                        <div class="form-group" style="flex: 1;">
+                            <label for="account_target_bot">Oluşturulan Hesapların Tokenını Hangi Bota Ekle:</label>
+                            <select id="account_target_bot" style="width: 100%; padding: 10px; border-radius: 8px; background: #121212; border: 1px solid rgba(187, 134, 252, 0.4); color: #fff;">
+                                <option value="1">🤖 Bot #1</option>
+                                <option value="2">🤖 Bot #2</option>
+                                <option value="3">🤖 Bot #3</option>
+                                <option value="all">🌐 Hepsine Ekle</option>
+                                <option value="none">❌ Hiçbirine Ekleme</option>
+                            </select>
+                        </div>
+                    </div>
 
-                    <div class="button-group">
+                    <div class="button-group" style="margin-top: 15px;">
                         <button id="create-account-btn" class="start">🚀 Hesap Oluştur</button>
                         <button id="stop-account-btn" class="stop">⏹ Durdur</button>
                     </div>
@@ -186,6 +205,16 @@
                 <label for="test-tokens-input">Test Edilecek Tokenlar (Her satıra bir token):</label>
                 <textarea id="test-tokens-input" rows="6" placeholder="Tokenları buraya yapıştır..."></textarea>
 
+                <div style="margin-top: 15px; margin-bottom: 15px;">
+                    <label for="test_target_bot">Aktif Tokenları Hangi Bota Ekle:</label>
+                    <select id="test_target_bot" style="width: 100%; padding: 10px; border-radius: 8px; background: #121212; border: 1px solid rgba(187, 134, 252, 0.4); color: #fff;">
+                        <option value="1">🤖 Bot #1</option>
+                        <option value="2">🤖 Bot #2</option>
+                        <option value="3">🤖 Bot #3</option>
+                        <option value="all">🌐 Hepsine Ekle</option>
+                    </select>
+                </div>
+
                 <button id="run-token-test-btn" class="start">🔍 Testi Başlat</button>
             </div>
 
@@ -218,6 +247,9 @@
         // ==========================================
         let pusherWs = null;
         let currentChatroomId = null;
+
+        let activeBotId = "1";
+        let botConfigs = {{ config.get('bots', {}) | tojson }};
 
         function addEmoteToMessages(textToAdd) {
             const textarea = document.getElementById('messages');
@@ -253,10 +285,11 @@
             if (!form) return;
             const formData = new FormData(form);
             try {
-                await fetch('/update', {
+                await fetch(`/update/${activeBotId}`, {
                     method: 'POST',
                     body: formData
                 });
+                saveCurrentInputsToLocalConfig(activeBotId);
             } catch (err) {
                 console.error('Otomatik ayar kaydetme hatası:', err);
             }
@@ -275,7 +308,7 @@
             }
 
             try {
-                const res = await fetch(`/get-chatroom/${channelName}`);
+                const res = await fetch(`/get-chatroom/${channelName}?bot_id=${activeBotId}`);
                 const data = await res.json();
                 if (data.success && data.chatroom_id) {
                     if (manualChatroomIdInput) {
@@ -371,7 +404,6 @@
 
         function parseAndFormatContent(text) {
             if (!text) return '';
-            // Kick emote formatını [emote:ID:NAME] tespit et
             const regex = /\[emote:(\d+):([a-zA-Z0-9_\-]+)\]/g;
             let replaced = text.replace(regex, function(match, emoteId, emoteName) {
                 return `<span class="chat-emote-tag" title="Emote ID'sini Ekle: ${match}" onclick="event.stopPropagation(); addEmoteToMessages('${match}');">🏷️ [${emoteName}]</span>`;
@@ -406,11 +438,9 @@
             `;
 
             chatBox.appendChild(msgDiv);
-
             chatBox.scrollTop = chatBox.scrollHeight;
 
             while (chatBox.children.length > 80) {
-                // İlk duyuru kutusunu silme
                 if (chatBox.children[0].classList.contains('chat-welcome-tip')) {
                     chatBox.removeChild(chatBox.children[1]);
                 } else {
@@ -427,7 +457,6 @@
                 refreshBtn.addEventListener('click', connectToLiveChat);
             }
 
-            // Chatroom ID inputuna girilince anlık bağlantı kur
             const chatroomIdInput = document.getElementById('chatroom_id');
             if (chatroomIdInput) {
                 chatroomIdInput.addEventListener('change', function() {
@@ -452,7 +481,84 @@
                     }
                 });
             }
+
+            // BOT SEÇİCİ TETİKLEYİCİLERİ
+            document.querySelectorAll('.bot-select-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const botId = this.dataset.bot;
+                    if (botId !== activeBotId) {
+                        switchBot(botId);
+                    }
+                });
+            });
+            
+            // Tüm botların çalışma durumlarını periyodik olarak kontrol et
+            updateAllBotStatuses();
+            setInterval(updateAllBotStatuses, 4000);
         });
+
+        function switchBot(botId) {
+            saveCurrentInputsToLocalConfig(activeBotId);
+
+            activeBotId = botId;
+
+            document.querySelectorAll('.bot-select-btn').forEach(btn => {
+                const bId = btn.dataset.bot;
+                if (bId === botId) {
+                    btn.classList.add('active');
+                    btn.style.background = 'rgba(187,134,252,0.2)';
+                    btn.style.borderColor = '#bb86fc';
+                    btn.style.color = '#bb86fc';
+                } else {
+                    btn.classList.remove('active');
+                    btn.style.background = 'rgba(255,255,255,0.05)';
+                    btn.style.borderColor = 'rgba(255,255,255,0.1)';
+                    btn.style.color = '#ccc';
+                }
+            });
+
+            const cfg = botConfigs[botId] || { channel: 'kick', chatroom_id: '', proxy: '', tokens: [], messages: [], delay: 4.0 };
+            document.getElementById('chatroom_id').value = cfg.chatroom_id || '';
+            document.getElementById('channel').value = cfg.channel || 'kick';
+            document.getElementById('proxy').value = cfg.proxy || '';
+            document.getElementById('tokens').value = (cfg.tokens || []).join('\n');
+            document.getElementById('messages').value = (cfg.messages || []).join('\n');
+            document.getElementById('delay').value = cfg.delay || 4.0;
+
+            connectToLiveChat();
+            updateLogs();
+        }
+
+        function saveCurrentInputsToLocalConfig(botId) {
+            if (!botConfigs[botId]) botConfigs[botId] = {};
+            botConfigs[botId].chatroom_id = document.getElementById('chatroom_id').value.trim();
+            botConfigs[botId].channel = document.getElementById('channel').value.trim();
+            botConfigs[botId].proxy = document.getElementById('proxy').value.trim();
+            botConfigs[botId].tokens = document.getElementById('tokens').value.split('\n').map(t => t.trim()).filter(t => t.length > 0);
+            botConfigs[botId].messages = document.getElementById('messages').value.split('\n').map(m => m.trim()).filter(m => m.length > 0);
+            botConfigs[botId].delay = parseFloat(document.getElementById('delay').value) || 4.0;
+        }
+
+        async function updateAllBotStatuses() {
+            for (let bId of ["1", "2", "3"]) {
+                try {
+                    const res = await fetch(`/logs/${bId}`);
+                    if (res.status === 200) {
+                        const data = await res.json();
+                        const badge = document.getElementById(`status-badge-${bId}`);
+                        if (badge) {
+                            if (data.running) {
+                                badge.innerText = "(🚀)";
+                                badge.style.color = "#03dac6";
+                            } else {
+                                badge.innerText = "(🛑)";
+                                badge.style.color = "#cf6679";
+                            }
+                        }
+                    }
+                } catch (e) {}
+            }
+        }
 
         // ==================
         // TAB SİSTEMİ
@@ -467,26 +573,21 @@
         });
 
         // ==================
-        // SOHBET BOTU
+        // SOHBET BOTU AYAR KAYDI
         // ==================
         document.getElementById('config-form').addEventListener('submit', async function (e) {
             e.preventDefault();
             const formData = new FormData(this);
             try {
-                const res = await fetch('/update', {
+                const res = await fetch(`/update/${activeBotId}`, {
                     method: 'POST',
                     body: formData
                 });
                 const data = await res.json();
                 if (data.success) {
                     showToast('✅ Ayarlar başarıyla kaydedildi!');
-                    // Chatroom ID varsa bağlantıyı (yeniden) kur
-                    const chatroomIdInput = document.getElementById('chatroom_id');
-                    const id = chatroomIdInput ? chatroomIdInput.value.trim() : '';
-                    if (id) {
-                        currentChatroomId = id;
-                        startPusherWebSocket(id, `Chatroom #${id}`);
-                    }
+                    saveCurrentInputsToLocalConfig(activeBotId);
+                    connectToLiveChat();
                 } else if (data.message) {
                     alert('Hata: ' + data.message);
                 }
@@ -497,10 +598,11 @@
 
         document.getElementById('start-btn').addEventListener('click', async function () {
             try {
-                const res = await fetch('/start', { method: 'POST' });
+                const res = await fetch(`/start/${activeBotId}`, { method: 'POST' });
                 const data = await res.json();
                 alert(data.message);
                 updateLogs();
+                updateAllBotStatuses();
             } catch (err) {
                 alert('Bot başlatılamadı!');
             }
@@ -508,10 +610,11 @@
 
         document.getElementById('stop-btn').addEventListener('click', async function () {
             try {
-                const res = await fetch('/stop', { method: 'POST' });
+                const res = await fetch(`/stop/${activeBotId}`, { method: 'POST' });
                 const data = await res.json();
                 alert(data.message);
                 updateLogs();
+                updateAllBotStatuses();
             } catch (err) {
                 alert('Bot durdurulamadı!');
             }
@@ -519,7 +622,7 @@
 
         async function updateLogs() {
             try {
-                const res = await fetch('/logs');
+                const res = await fetch(`/logs/${activeBotId}`);
                 if (res.status === 401) {
                     window.location.href = '/login';
                     return;
@@ -551,9 +654,11 @@
         document.getElementById('create-account-btn').addEventListener('click', async function () {
             const count = document.getElementById('account_count').value;
             const delay = document.getElementById('account_delay').value;
+            const targetBot = document.getElementById('account_target_bot').value;
             const formData = new FormData();
             formData.append('account_count', count);
             formData.append('account_delay', delay);
+            formData.append('target_bot', targetBot);
 
             try {
                 const res = await fetch('/create-account', { method: 'POST', body: formData });
@@ -637,6 +742,7 @@
         document.getElementById('run-token-test-btn').addEventListener('click', async function () {
             const tokenInput = document.getElementById('test-tokens-input').value;
             const tokens = tokenInput.split('\n').map(t => t.trim()).filter(t => t.length > 0);
+            const targetBot = document.getElementById('test_target_bot').value;
 
             if (tokens.length === 0) {
                 alert('Lütfen test edilecek tokenları girin.');
@@ -674,7 +780,7 @@
                         headers: {
                             'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify({ token: token })
+                        body: JSON.stringify({ token: token, bot_id: targetBot })
                     });
 
                     const data = await res.json();
@@ -705,25 +811,59 @@
         });
 
         document.getElementById('add-valid-tokens-btn').addEventListener('click', function () {
-            const currentTokensArea = document.getElementById('tokens');
-            let currentTokens = currentTokensArea.value.split('\n').map(t => t.trim()).filter(t => t.length > 0);
-
-            // Mevcut olmayan tokenları ekle
+            const targetBot = document.getElementById('test_target_bot').value;
             let addedCount = 0;
-            validTokensFound.forEach(t => {
-                if (!currentTokens.includes(t)) {
-                    currentTokens.push(t);
-                    addedCount++;
-                }
-            });
 
-            currentTokensArea.value = currentTokens.join('\n');
+            if (targetBot === "all") {
+                ["1", "2", "3"].forEach(bId => {
+                    if (!botConfigs[bId]) botConfigs[bId] = { tokens: [] };
+                    validTokensFound.forEach(t => {
+                        if (!botConfigs[bId].tokens.includes(t)) {
+                            botConfigs[bId].tokens.push(t);
+                            addedCount++;
+                        }
+                    });
+                });
+            } else {
+                if (!botConfigs[targetBot]) botConfigs[targetBot] = { tokens: [] };
+                validTokensFound.forEach(t => {
+                    if (!botConfigs[targetBot].tokens.includes(t)) {
+                        botConfigs[targetBot].tokens.push(t);
+                        addedCount++;
+                    }
+                });
+            }
 
-            // Otomatik olarak formu submit et ve kaydet
-            document.getElementById('config-form').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+            if (targetBot === "all" || targetBot === activeBotId) {
+                document.getElementById('tokens').value = botConfigs[activeBotId].tokens.join('\n');
+            }
 
-            alert(`${addedCount} adet çalışan token başarıyla eklendi ve sistem dosyasına kaydedildi!`);
+            saveAllConfigsToBackend();
+            alert(`${addedCount} adet çalışan token başarıyla seçilen bot(lar)a eklendi ve kaydedildi!`);
         });
+
+        async function saveAllConfigsToBackend() {
+            for (let bId of ["1", "2", "3"]) {
+                const formData = new FormData();
+                const cfg = botConfigs[bId];
+                if (!cfg) continue;
+                formData.append('channel', cfg.channel || 'kick');
+                formData.append('chatroom_id', cfg.chatroom_id || '');
+                formData.append('proxy', cfg.proxy || '');
+                formData.append('tokens', (cfg.tokens || []).join('\n'));
+                formData.append('messages', (cfg.messages || []).join('\n'));
+                formData.append('delay', cfg.delay || 4.0);
+                
+                try {
+                    await fetch(`/update/${bId}`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                } catch(e) {
+                    console.error("Save config failed for bot " + bId, e);
+                }
+            }
+        }
     </script>
 </body>
 
